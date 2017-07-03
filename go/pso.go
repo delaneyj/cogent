@@ -2,6 +2,7 @@ package pso
 
 import (
 	"log"
+	"math/rand"
 	"os"
 
 	"fmt"
@@ -10,41 +11,6 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 )
-
-type rand struct {
-	state []uint32
-}
-
-func (r *rand) next() uint32 {
-	t := r.state[3]
-	t ^= t << 11
-	t ^= t >> 8
-	r.state[3] = r.state[2]
-	r.state[2] = r.state[1]
-	r.state[1] = r.state[0]
-
-	t ^= r.state[0]
-	t ^= r.state[0] >> 19
-	r.state[0] = t
-	return t
-}
-
-func (r *rand) float64() float64 {
-	return float64(r.next()) / float64(math.MaxUint32)
-}
-
-func (r *rand) nextMax(max int) int {
-	return int(r.next() % uint32(max))
-}
-
-func (r *rand) nextRange(min, max int) int {
-	diff := max - min
-	return r.nextMax(diff) + min
-}
-
-var r = rand{
-	state: []uint32{7919, 104729, 1299709, 15485863},
-}
 
 //ShowVector x
 func ShowVector(vector []float64, valsPerRow, decimals int) {
@@ -263,63 +229,60 @@ func softmax(oSums []float64) []float64 {
 func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs int, exitError, probDeath float64) ([]float64, int) {
 	// PSO version training. best weights stored into NN and returned
 	// particle position == NN weights
-
-	numWeights := (nn.numInput * nn.numHidden) + (nn.numHidden * nn.numOutput) + nn.numHidden + nn.numOutput
+	weightCount := (nn.numInput * nn.numHidden) + (nn.numHidden * nn.numOutput) + nn.numHidden + nn.numOutput
 
 	// use PSO to seek best weights
 	tries := 0
 	epoch := 0
-	minX := -10.0 // for each weight. assumes data has been normalized about 0
-	maxX := 10.0
-	w := 0.729    // inertia weight
-	c1 := 1.49445 // cognitive/local weight
-	c2 := 1.49445 // social/global weight
-	// var r1, r2 float64 // cognitive and social randomizations
+	weightRange := 10.0 // for each weight. assumes data has been normalized about 0
+	w := 0.729          // inertia weight
+	c1 := 1.49445       // cognitive/local weight
+	c2 := 1.49445       // social/global weight
 
 	swarm := make([]*particle, numParticles)
-	log.Println("best solution found by any particle in the swarm. implicit initialization to all 0.0")
-	bestGlobalPosition := make([]float64, numWeights)
+	// log.Println("best solution found by any particle in the swarm. implicit initialization to all 0.0")
+	bestGlobalPosition := make([]float64, weightCount)
 	bestGlobalError := math.MaxFloat64 // smaller values better
 
 	//double minV = -0.01 * maxX;  // velocities
 	//double maxV = 0.01 * maxX;
 
-	log.Println("swarm initialization")
-	log.Println(" initialize each Particle in the swarm with random positions and velocities")
+	// log.Println("swarm initialization")
+	// log.Println(" initialize each Particle in the swarm with random positions and velocities")
 	for i := range swarm {
-		randomPosition := make([]float64, numWeights)
+		randomPosition := make([]float64, weightCount)
 		for j := range randomPosition {
 			//double lo = minX;
 			//double hi = maxX;
 			//randomPosition[j] = (hi - lo) * rnd.NextDouble() + lo;
-			randomPosition[j] = (maxX-minX)*r.float64() + minX
+			randomPosition[j] = (2*weightRange)*rand.Float64() - weightRange
 		}
 
-		log.Println("randomPosition is a set of weights; sent to NN")
+		// log.Println("randomPosition is a set of weights; sent to NN")
 		fitnessError := nn.meanSquaredError(trainData, randomPosition)
-		randomVelocity := make([]float64, numWeights)
+		randomVelocity := make([]float64, weightCount)
 
 		for j := range randomVelocity {
 			//double lo = -1.0 * Math.Abs(maxX - minX);
 			//double hi = Math.Abs(maxX - minX);
 			//randomVelocity[j] = (hi - lo) * rnd.NextDouble() + lo;
-			lo := 0.1 * minX
-			hi := 0.1 * maxX
-			randomVelocity[j] = (hi-lo)*r.float64() + lo
+			lo := -0.1 * weightRange
+			hi := 0.1 * weightRange
+			randomVelocity[j] = (hi-lo)*rand.Float64() + lo
 		}
 		swarm[i] = newParticle(randomPosition, randomVelocity, randomPosition, fitnessError, fitnessError) // last two are best-position and best-error
 
-		log.Println("does current Particle have global best position/solution?")
+		// log.Println("does current Particle have global best position/solution?")
 		if swarm[i].FitnessError < bestGlobalError {
 			bestGlobalError = swarm[i].FitnessError
 			copy(bestGlobalPosition, swarm[i].Position)
 		}
 	}
-	log.Println("end of initialization")
+	// log.Println("end of initialization")
 
-	log.Println("Entering main PSO weight estimation processing loop")
+	// log.Println("Entering main PSO weight estimation processing loop")
 
-	log.Println("main PSO algorithm")
+	// log.Println("main PSO algorithm")
 	sequence := make([]int, numParticles) // process particles in random order
 	for i := range sequence {
 		sequence[i] = i
@@ -330,9 +293,9 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			break // early exit (MSE error)
 		}
 
-		newVelocity := make([]float64, numWeights) // step 1
-		newPosition := make([]float64, numWeights) // step 2
-		var newError float64                       // step 3
+		newVelocity := make([]float64, weightCount) // step 1
+		newPosition := make([]float64, weightCount) // step 2
+		var newError float64                        // step 3
 
 		shuffle(sequence) // move particles in random sequence
 
@@ -344,8 +307,8 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 
 			// 1. compute new velocity
 			for j := range currP.Velocity { // each x value of the velocity
-				r1 := r.float64()
-				r2 := r.float64()
+				r1 := rand.Float64()
+				r2 := rand.Float64()
 
 				// velocity depends on old velocity, best position of parrticle, and
 				// best position of any particle
@@ -359,10 +322,10 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			// 2. use new velocity to compute new position
 			for j := range currP.Position {
 				newPosition[j] = currP.Position[j] + newVelocity[j] // compute new position
-				if newPosition[j] < minX {                          // keep in range
-					newPosition[j] = minX
-				} else if newPosition[j] > maxX {
-					newPosition[j] = maxX
+				if newPosition[j] < -weightRange {                  // keep in range
+					newPosition[j] = -weightRange
+				} else if newPosition[j] > weightRange {
+					newPosition[j] = weightRange
 				}
 			}
 
@@ -386,11 +349,11 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			}
 
 			// 4. optional: does curr particle die?
-			die := r.float64()
+			die := rand.Float64()
 			if die < probDeath {
 				// new position, leave velocity, update error
 				for j := range currP.Position {
-					currP.Position[j] = (maxX-minX)*r.float64() + minX
+					currP.Position[j] = (2*weightRange)*rand.Float64() - weightRange
 				}
 				currP.FitnessError = nn.meanSquaredError(trainData, currP.Position)
 				copy(currP.BestPosition, currP.Position)
@@ -404,11 +367,10 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 		}
 
 		epoch++
-
 	}
 
 	nn.SetWeights(bestGlobalPosition) // best position is a set of weights
-	retResult := make([]float64, numWeights)
+	retResult := make([]float64, weightCount)
 	copy(retResult, bestGlobalPosition)
 	return retResult, tries
 }
@@ -416,7 +378,7 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 func shuffle(sequence []int) {
 	l := len(sequence)
 	for i, s := range sequence {
-		ri := r.nextRange(i, l)
+		ri := rand.Intn(l-i) + i
 		tmp := sequence[ri]
 		sequence[ri] = s
 		sequence[i] = tmp
@@ -447,11 +409,9 @@ func (nn *NeuralNetwork) meanSquaredError(trainData [][]float64, weights []float
 //Accuracy x
 func (nn *NeuralNetwork) Accuracy(testData [][]float64) float64 {
 	// percentage correct using winner-takes all
-	numCorrect := 0
-	numWrong := 0
+	correctCount := 0
 	xValues := make([]float64, nn.numInput)  // inputs
 	tValues := make([]float64, nn.numOutput) // targets
-	//   double[] yValues; // computed Y
 
 	for _, t := range testData {
 		copy(xValues, t) // parse test data into x-values and t-values
@@ -460,13 +420,11 @@ func (nn *NeuralNetwork) Accuracy(testData [][]float64) float64 {
 		yValues := nn.computeOutputs(xValues)
 		maxIndex := maxIndex(yValues) // which cell in yValues has largest value?
 
-		if tValues[maxIndex] == 1.0 { // ugly. consider AreEqual(double x, double y)
-			numCorrect++
-		} else {
-			numWrong++
+		if tValues[maxIndex] == 1.0 {
+			correctCount++
 		}
 	}
-	return float64(numCorrect) / float64(numCorrect+numWrong) // ugly 2 - check for divide by zero
+	return float64(correctCount) / float64(len(testData))
 }
 
 func maxIndex(vector []float64) int { // helper for Accuracy(){
