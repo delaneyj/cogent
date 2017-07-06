@@ -2,7 +2,6 @@ package pso
 
 import (
 	"log"
-	"math/rand"
 	"os"
 
 	"fmt"
@@ -11,6 +10,41 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 )
+
+type rand struct {
+	state []uint32
+}
+
+func (r *rand) next() uint32 {
+	t := r.state[3]
+	t ^= t << 11
+	t ^= t >> 8
+	r.state[3] = r.state[2]
+	r.state[2] = r.state[1]
+	r.state[1] = r.state[0]
+
+	t ^= r.state[0]
+	t ^= r.state[0] >> 19
+	r.state[0] = t
+	return t
+}
+
+func (r *rand) float64() float64 {
+	return float64(r.next()) / float64(math.MaxUint32)
+}
+
+func (r *rand) nextMax(max int) int {
+	return int(r.next() % uint32(max))
+}
+
+func (r *rand) nextRange(min, max int) int {
+	diff := max - min
+	return r.nextMax(diff) + min
+}
+
+var r = rand{
+	state: []uint32{7919, 104729, 1299709, 15485863},
+}
 
 //ShowVector x
 func ShowVector(vector []float64, valsPerRow, decimals int) {
@@ -255,7 +289,7 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			//double lo = minX;
 			//double hi = maxX;
 			//randomPosition[j] = (hi - lo) * rnd.NextDouble() + lo;
-			randomPosition[j] = (2*weightRange)*rand.Float64() - weightRange
+			randomPosition[j] = (2*weightRange)*r.float64() - weightRange
 		}
 
 		// log.Println("randomPosition is a set of weights; sent to NN")
@@ -268,7 +302,7 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			//randomVelocity[j] = (hi - lo) * rnd.NextDouble() + lo;
 			lo := -0.1 * weightRange
 			hi := 0.1 * weightRange
-			randomVelocity[j] = (hi-lo)*rand.Float64() + lo
+			randomVelocity[j] = (hi-lo)*r.float64() + lo
 		}
 		swarm[i] = newParticle(randomPosition, randomVelocity, randomPosition, fitnessError, fitnessError) // last two are best-position and best-error
 
@@ -307,8 +341,8 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 
 			// 1. compute new velocity
 			for j := range currP.Velocity { // each x value of the velocity
-				r1 := rand.Float64()
-				r2 := rand.Float64()
+				r1 := r.float64()
+				r2 := r.float64()
 
 				// velocity depends on old velocity, best position of parrticle, and
 				// best position of any particle
@@ -349,11 +383,11 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 			}
 
 			// 4. optional: does curr particle die?
-			die := rand.Float64()
+			die := r.float64()
 			if die < probDeath {
 				// new position, leave velocity, update error
 				for j := range currP.Position {
-					currP.Position[j] = (2*weightRange)*rand.Float64() - weightRange
+					currP.Position[j] = (2*weightRange)*r.float64() - weightRange
 				}
 				currP.FitnessError = nn.meanSquaredError(trainData, currP.Position)
 				copy(currP.BestPosition, currP.Position)
@@ -378,7 +412,7 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 func shuffle(sequence []int) {
 	l := len(sequence)
 	for i, s := range sequence {
-		ri := rand.Intn(l-i) + i
+		ri := r.nextRange(i, l)
 		tmp := sequence[ri]
 		sequence[ri] = s
 		sequence[i] = tmp
