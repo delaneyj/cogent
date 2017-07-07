@@ -1,4 +1,4 @@
-package main
+package cogent
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-const (
+const ( 
 	weightRange       = 10
 	inertiaWeight     = 0.729
 	cognitiveWeight   = 1.49445
@@ -17,45 +17,20 @@ const (
 type connection struct {
 }
 
-type dataPair struct {
-	Weight   float64 `json:"weight"`
-	Velocity float64 `json:"velocity"`
-}
-
 type node struct {
-	Current []*dataPair `json:"current"`
-	Best    []*dataPair `json:"best"`
+	weights, velocities []float64
+	bias                float64
 }
 
 func newNode(inputCount int) *node {
 	inputWithBiasCount := inputCount + 1
 	n := &node{
-		Current: make([]*dataPair, inputWithBiasCount),
-		Best:    make([]*dataPair, inputWithBiasCount),
+		weights:    make([]float64, inputWithBiasCount),
+		velocities: make([]float64, inputWithBiasCount),
 	}
-	n.reset()
+	// n.reset()
 
 	return n
-}
-
-func (n *node) reset() {
-	for i := range n.Current {
-		w := (2*weightRange)*r.float64() - weightRange
-
-		lo := -0.1 * weightRange
-		hi := 0.1 * weightRange
-		v := (hi-lo)*r.float64() + lo
-
-		// log.Println(w, v)
-		n.Current[i] = &dataPair{
-			Weight:   w,
-			Velocity: v,
-		}
-		n.Best[i] = &dataPair{
-			Weight:   w,
-			Velocity: v,
-		}
-	}
 }
 
 type layer struct {
@@ -63,10 +38,12 @@ type layer struct {
 }
 
 type neuralNetwork struct {
-	Layers              []*layer `json:"layers"`
-	CurrentFitnessError float64  `json:"currentFitnessError"`
-	BestFitnessError    float64  `json:"bestFitnessError"`
-	WeightCount         int      `json:"weightCount"`
+	Layers      []*layer `json:"layers"`
+	WeightCount int      `json:"weightCount"`
+
+	CurrentFitnessError float64 `json:"currentFitnessError"`
+	BestFitnessError    float64 `json:"bestFitnessError"`
+	bestWeights         []float64
 }
 
 func newNeuralNetwork(layerCounts ...int) *neuralNetwork {
@@ -100,27 +77,56 @@ func newNeuralNetwork(layerCounts ...int) *neuralNetwork {
 }
 
 func (nn *neuralNetwork) weights() []float64 {
-	weights := make([]float64, nn.WeightCount)
-	i := 0
+	weights := make([]float64, 0, nn.WeightCount)
+
 	for _, l := range nn.Layers {
 		for _, n := range l.Nodes {
-			for _, c := range n.Current {
-				weights[i] = c.Weight
-				i++
-			}
+			weights = append(weights, n.weights...)
 		}
+	}
+
+	if len(weights) != nn.WeightCount {
+		log.Fatal("Oh noes")
 	}
 	return weights
 }
 
 func (nn *neuralNetwork) setWeights(weights []float64) {
-	i := 0
+	offset := 0
 	for _, l := range nn.Layers {
 		for _, n := range l.Nodes {
-			for _, c := range n.Current {
-				c.Weight = weights[i]
-				i++
-			}
+			weightCount := len(n.weights)
+			max := weightCount + offset
+			copy(n.weights, weights[offset:max])
+			offset = max
+		}
+	}
+}
+
+func (nn *neuralNetwork) velocities() []float64 {
+	velocities := make([]float64, 0, nn.WeightCount)
+
+	for _, l := range nn.Layers {
+		for _, n := range l.Nodes {
+			velocities = append(velocities, n.velocities...)
+		}
+	}
+
+	if len(velocities) != nn.WeightCount {
+		log.Fatal("Oh noes")
+	}
+	return velocities
+}
+
+func (nn *neuralNetwork) setVelocities(velocities []float64) {
+	offset := 0
+	for _, l := range nn.Layers {
+		for _, n := range l.Nodes {
+			velocityCount := len(n.velocities)
+			max := velocityCount + offset
+
+			copy(n.velocities, velocities[offset:max])
+			offset = max
 		}
 	}
 }
@@ -129,13 +135,13 @@ func (nn *neuralNetwork) String() string {
 	weights := make([]float64, nn.WeightCount)
 	velocities := make([]float64, nn.WeightCount)
 
-	i := 0
+	index := 0
 	for _, l := range nn.Layers {
 		for _, n := range l.Nodes {
-			for _, c := range n.Current {
-				weights[i] = c.Weight
-				velocities[i] = c.Velocity
-				i++
+			for i, weight := range n.weights {
+				weights[index] = weight
+				velocities[index] = n.velocities[i]
+				index++
 			}
 		}
 	}
@@ -151,88 +157,95 @@ func (nn *neuralNetwork) String() string {
 }
 
 func (nn *neuralNetwork) train(trainingData []Data, globalBestWeights []float64) float64 {
-	bestIndex := 0
+	flatArrayIndex := 0
+
 	// 1. compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
+	newVelocity := make([]float64, nn.WeightCount)
 	for _, l := range nn.Layers {
 		for _, n := range l.Nodes {
-			for k, c := range n.Current {
-				bestGlobalWeight := globalBestWeights[bestIndex]
-				bestIndex++
-				bestLocal := n.Best[k]
+			for i, currentLocalWeight := range n.weights {
+				bestGlobalWeight := globalBestWeights[flatArrayIndex]
+				bestLocalWeight := nn.bestWeights[flatArrayIndex]
 
-				oldVelocityFactor := inertiaWeight * c.Velocity
+				currentLocalVelocity := n.velocities[i]
+
+				oldVelocityFactor := inertiaWeight * currentLocalVelocity
 
 				localRandomness := r.float64()
-				bestLocationDelta := bestLocal.Weight - c.Weight
+				bestLocationDelta := bestLocalWeight - currentLocalWeight
 				localPositionFactor := cognitiveWeight * localRandomness * bestLocationDelta
 
 				globalRandomness := r.float64()
-				bestGlobalDelta := bestGlobalWeight - c.Weight
+				bestGlobalDelta := bestGlobalWeight - currentLocalWeight
 				globalPositionFactor := socialWeight * globalRandomness * bestGlobalDelta
 
 				revisedVelocity := oldVelocityFactor + localPositionFactor + globalPositionFactor
-				c.Velocity = revisedVelocity
+				newVelocity[flatArrayIndex] = revisedVelocity
+
+				flatArrayIndex++
 			}
 		}
 	}
+	nn.setVelocities(newVelocity)
 
 	// 2. use new velocity to compute new position but keep in range
+	flatArrayIndex = 0
+	newPosition := make([]float64, nn.WeightCount)
 	for _, l := range nn.Layers {
 		for _, n := range l.Nodes {
-			for _, c := range n.Current {
-				revisedPosition := c.Weight + c.Velocity
+			for i, w := range n.weights {
+				v := n.velocities[i]
+				revisedPosition := w + v
 				clamped := math.Max(-weightRange, math.Min(weightRange, revisedPosition))
-				c.Weight = clamped
+				newPosition[flatArrayIndex] = clamped
+				flatArrayIndex++
 			}
 		}
 	}
+	nn.setWeights(newPosition)
 
 	// 2b. optional: apply weight decay (large weights tend to overfit)
 
 	// 3. use new position to compute new error
-	nn.checkAndSetMSE(trainingData)
+	nn.checkAndSetMSE(trainingData, newPosition)
 
 	// 4. optional: does curr particle die?
 	deathChance := r.float64()
 	if deathChance < probablityOfDeath {
 		// new position, leave velocity, update error
-		nn.reset()
-		nn.checkAndSetMSE(trainingData)
+		afterDeathPosition := make([]float64, nn.WeightCount)
+		for i := range afterDeathPosition {
+			afterDeathPosition[i] = (2*weightRange)*r.float64() - weightRange
+		}
+		nn.setWeights(afterDeathPosition)
+		nn.checkAndSetMSE(trainingData, newPosition)
 	}
 
 	return nn.CurrentFitnessError
 }
 
-func (nn *neuralNetwork) checkAndSetMSE(data []Data) float64 {
-	mse := nn.meanSquaredError(data)
+func (nn *neuralNetwork) checkAndSetMSE(data []Data, weights []float64) float64 {
+	mse := nn.meanSquaredError(data, weights)
 	nn.CurrentFitnessError = mse
 	if mse < nn.BestFitnessError {
 		nn.BestFitnessError = mse
-		for _, l := range nn.Layers {
-			for _, n := range l.Nodes {
-				for i, c := range n.Current {
-					b := n.Best[i]
-					b.Weight = c.Weight
-					b.Velocity = c.Velocity
-				}
-			}
-		}
+		nn.bestWeights = nn.weights()
 	}
 	return mse
 }
 
-func (nn *neuralNetwork) reset() {
-	for _, l := range nn.Layers {
-		for _, n := range l.Nodes {
-			n.reset()
-		}
-	}
-	nn.CurrentFitnessError = math.MaxFloat64
-	nn.BestFitnessError = math.MaxFloat64
-}
+// func (nn *neuralNetwork) reset() {
+// 	for _, l := range nn.Layers {
+// 		for _, n := range l.Nodes {
+// 			n.reset()
+// 		}
+// 	}
+// 	nn.CurrentFitnessError = math.MaxFloat64
+// 	nn.BestFitnessError = math.MaxFloat64
+// }
 
-func (nn *neuralNetwork) activate(inputs ...float64) []float64 {
-	previousInputs := append(inputs, 1) //bias
+func (nn *neuralNetwork) activate(intialInputs ...float64) []float64 {
+	inputs := append(intialInputs, 1) //bias
 
 	var outputs []float64
 
@@ -240,21 +253,20 @@ func (nn *neuralNetwork) activate(inputs ...float64) []float64 {
 	for i, l := range nn.Layers {
 		outputs = make([]float64, len(l.Nodes))
 
-		for _, n := range l.Nodes {
+		for j, n := range l.Nodes {
 			sum := 0.0
-			for j, c := range n.Current {
-				input := previousInputs[j]
-				weight := c.Weight
+			for j, weight := range n.weights {
+				input := inputs[j]
 				sum += input * weight
 			}
 
 			if i != lastLayerIndex {
 				sum = hyperTan(sum)
 			}
-			outputs[i] = sum
+			outputs[j] = sum
 		}
 
-		previousInputs = append(outputs, 1)
+		inputs = append(outputs, 1)
 	}
 
 	classified := softmax(outputs)
@@ -326,7 +338,10 @@ func softmax(outputs []float64) []float64 {
 	return result // now scaled so that xi sum to 1.0
 }
 
-func (nn *neuralNetwork) meanSquaredError(data []Data) float64 {
+func (nn *neuralNetwork) meanSquaredError(data []Data, weights []float64) float64 {
+	// assumes that centroids and widths have been set!
+	nn.setWeights(weights) // copy the weights to evaluate in
+
 	sumSquaredError := 0.0
 	for _, d := range data {
 		actualOuputs := nn.activate(d.Inputs...)
@@ -369,11 +384,28 @@ func NewSwarm(particleCount int, layerCounts ...int) *Swarm {
 
 //Train x
 func (s *Swarm) Train(maxIterations int, targetAccuracy float64, trainingData []Data) int {
-	iterations := 0
+	tries := 0
+
+	weightCount := s.particles[0].WeightCount
 
 	//set mse for given training set
 	for _, p := range s.particles {
-		mse := p.checkAndSetMSE(trainingData)
+		randomPosition := make([]float64, weightCount)
+		randomVelocity := make([]float64, weightCount)
+
+		for j := range randomPosition {
+			//double lo = minX;
+			//double hi = maxX;
+			//randomPosition[j] = (hi - lo) * rnd.NextDouble() + lo;
+			randomPosition[j] = (2*weightRange)*r.float64() - weightRange
+
+			lo := -0.1 * weightRange
+			hi := 0.1 * weightRange
+			randomVelocity[j] = (hi-lo)*r.float64() + lo
+		}
+
+		p.setVelocities(randomVelocity)
+		mse := p.checkAndSetMSE(trainingData, randomPosition)
 
 		if mse < s.globalBestFitnessError {
 			s.globalBestFitnessError = mse
@@ -388,10 +420,10 @@ func (s *Swarm) Train(maxIterations int, targetAccuracy float64, trainingData []
 		sequence[i] = i
 	}
 
-	log.Println(s.globalBestFitnessError)
+	log.Printf("Best global error %f.", s.globalBestFitnessError)
 	for i := 0; i < maxIterations; i++ {
 		if s.globalBestFitnessError <= targetAccuracy {
-			return iterations
+			return tries
 		}
 
 		shuffle(sequence) // move particles in random sequence
@@ -404,17 +436,17 @@ func (s *Swarm) Train(maxIterations int, targetAccuracy float64, trainingData []
 
 			mse := currentParticle.train(trainingData, s.globalBestFitnessPositions)
 			// log.Println(i, index, iterations, mse)
-			iterations++
+			tries++
 
 			if mse < s.globalBestFitnessError {
-				log.Printf("<%d:%d> %9f => %9f", i, pi, s.globalBestFitnessError, mse)
+				log.Printf("New global best found mean square error %9f => %9f on try %d.", s.globalBestFitnessError, mse, tries)
 				s.globalBestFitnessError = mse
 				s.globalBestFitnessPositions = currentParticle.weights()
 			}
 		}
 	}
 
-	return iterations
+	return tries
 }
 
 func shuffle(sequence []int) {

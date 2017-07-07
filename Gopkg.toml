@@ -72,8 +72,4 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/olekukonko/tablewriter"
-
-[[constraint]]
-  branch = "master"
   name = "github.com/smartystreets/goconvey"

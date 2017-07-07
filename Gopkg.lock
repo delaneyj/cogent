@@ -14,18 +14,6 @@
   revision = "77f18212c9c7edc9bd6a33d383a7b545ce62f064"
 
 [[projects]]
-  name = "github.com/mattn/go-runewidth"
-  packages = ["."]
-  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
-  version = "v0.0.2"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/olekukonko/tablewriter"
-  packages = ["."]
-  revision = "febf2d34b54a69ce7530036c7503b1c9fbfdf0bb"
-
-[[projects]]
   branch = "master"
   name = "github.com/smartystreets/assertions"
   packages = [".","internal/go-render/render","internal/oglematchers"]
@@ -40,6 +28,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9bd41f1df07350a2161fd5dfa47b5877a7c2fc6a06a5bf75886b67ef4d52c0b8"
+  inputs-digest = "5b033124eb7f2db0f033a2e84f6d206602baf5ea5046c4a2c3b528ad69929665"
   solver-name = "gps-cdcl"
   solver-version = 1
