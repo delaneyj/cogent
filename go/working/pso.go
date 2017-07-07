@@ -92,6 +92,14 @@ type NeuralNetwork struct {
 
 //NewNeuralNetwork x
 func NewNeuralNetwork(numInput, numHidden, numOutput int) *NeuralNetwork {
+	makeMatrix := func(rows, cols int) [][]float64 {
+		results := make([][]float64, rows)
+		for r := range results {
+			results[r] = make([]float64, cols)
+		}
+		return results
+	}
+
 	nn := NeuralNetwork{
 		numInput:            numInput,
 		numHidden:           numHidden,
@@ -105,14 +113,6 @@ func NewNeuralNetwork(numInput, numHidden, numOutput int) *NeuralNetwork {
 		outputs:             make([]float64, numOutput),
 	}
 	return &nn
-}
-
-func makeMatrix(rows, cols int) [][]float64 {
-	results := make([][]float64, rows)
-	for r := range results {
-		results[r] = make([]float64, cols)
-	}
-	return results
 }
 
 //SetWeights x
@@ -193,7 +193,9 @@ func (nn *NeuralNetwork) computeOutputs(xValues []float64) []float64 {
 
 	for j := 0; j < nn.numHidden; j++ { // compute i-h sum of weights * inputs
 		for i := 0; i < nn.numInput; i++ {
-			hSums[j] += nn.inputs[i] * nn.hiddenInputWeights[i][j] // note +=
+			input := nn.inputs[i]
+			weight := nn.hiddenInputWeights[i][j]
+			hSums[j] += input * weight // note +=
 		}
 	}
 
@@ -285,25 +287,19 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 	// log.Println(" initialize each Particle in the swarm with random positions and velocities")
 	for i := range swarm {
 		randomPosition := make([]float64, weightCount)
+		randomVelocity := make([]float64, weightCount)
+
 		for j := range randomPosition {
 			//double lo = minX;
 			//double hi = maxX;
 			//randomPosition[j] = (hi - lo) * rnd.NextDouble() + lo;
 			randomPosition[j] = (2*weightRange)*r.float64() - weightRange
-		}
 
-		// log.Println("randomPosition is a set of weights; sent to NN")
-		fitnessError := nn.meanSquaredError(trainData, randomPosition)
-		randomVelocity := make([]float64, weightCount)
-
-		for j := range randomVelocity {
-			//double lo = -1.0 * Math.Abs(maxX - minX);
-			//double hi = Math.Abs(maxX - minX);
-			//randomVelocity[j] = (hi - lo) * rnd.NextDouble() + lo;
 			lo := -0.1 * weightRange
 			hi := 0.1 * weightRange
 			randomVelocity[j] = (hi-lo)*r.float64() + lo
 		}
+		fitnessError := nn.meanSquaredError(trainData, randomPosition)
 		swarm[i] = newParticle(randomPosition, randomVelocity, randomPosition, fitnessError, fitnessError) // last two are best-position and best-error
 
 		// log.Println("does current Particle have global best position/solution?")
@@ -341,14 +337,19 @@ func (nn *NeuralNetwork) Train(trainData [][]float64, numParticles, maxEpochs in
 
 			// 1. compute new velocity
 			for j := range currP.Velocity { // each x value of the velocity
-				r1 := r.float64()
-				r2 := r.float64()
+				oldVelocityFactor := w * currP.Velocity[j]
+
+				localRandomness := r.float64()
+				localDelta := currP.BestPosition[j] - currP.Position[j]
+				localFactor := c1 * localRandomness * localDelta
+
+				globalRandomness := r.float64()
+				globalDelta := bestGlobalPosition[j] - currP.Position[j]
+				globalFactor := c2 * globalRandomness * globalDelta
 
 				// velocity depends on old velocity, best position of parrticle, and
 				// best position of any particle
-				newVelocity[j] = (w * currP.Velocity[j]) +
-					(c1 * r1 * (currP.BestPosition[j] - currP.Position[j])) +
-					(c2 * r2 * (bestGlobalPosition[j] - currP.Position[j]))
+				newVelocity[j] = oldVelocityFactor + localFactor + globalFactor
 			}
 
 			copy(currP.Velocity, newVelocity)

@@ -1,4 +1,4 @@
-package cogent
+package main
 
 import "math"
 
