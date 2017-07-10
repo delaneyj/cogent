@@ -6,7 +6,7 @@
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceRoot}/tests"
+            "program": "${workspaceRoot}"
         },
     {
         "name": "Launch Package",
