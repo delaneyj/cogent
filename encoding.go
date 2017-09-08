@@ -6,6 +6,23 @@ import (
 	"strconv"
 )
 
+//Encoding to convert to float64
+type Encoding int
+
+const (
+	//BinaryBoolean converts to -1,1
+	BinaryBoolean Encoding = iota
+
+	//BinaryString converts to -1,1
+	BinaryString
+
+	//Normalize confines to Mean 0 +- Standard Deviation
+	Normalize
+
+	//ClassifyString converts to one hot encoding
+	ClassifyString
+)
+
 func binaryEncoding(value bool) []float64 {
 	if value {
 		return []float64{1}
@@ -66,7 +83,7 @@ func normalizeEncoding(raw []float64) []float64 {
 	return results
 }
 
-func tableEncoding(encodings []string, rows ...[]string) [][]float64 {
+func tableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
 	results := make([][]float64, len(rows))
 
 	columns := make([][][]float64, len(encodings))
@@ -80,16 +97,16 @@ func tableEncoding(encodings []string, rows ...[]string) [][]float64 {
 		}
 
 		switch encoding {
-		case "binaryBoolean":
+		case BinaryBoolean:
 			for k, s := range rawColumn {
 				b, _ := strconv.ParseBool(s)
 				column[k] = binaryEncoding(b)
 			}
-		case "binaryString":
+		case BinaryString:
 			for k, s := range rawColumn {
 				column[k] = binaryStringEncoding(s, rawColumn[0])
 			}
-		case "normalize":
+		case Normalize:
 			floats := make([]float64, len(rawColumn))
 			for i, s := range rawColumn {
 				f, _ := strconv.ParseFloat(s, 64)
@@ -99,7 +116,7 @@ func tableEncoding(encodings []string, rows ...[]string) [][]float64 {
 			for i, x := range normalized {
 				column[i] = []float64{x}
 			}
-		case "classifyString":
+		case ClassifyString:
 			column = classificationEncoding(rawColumn)
 		default:
 			log.Fatal(encoding)

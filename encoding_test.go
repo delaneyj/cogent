@@ -35,13 +35,13 @@ func TestEncoding(t *testing.T) {
 	})
 
 	Convey("Combine", t, func() {
-		encodings := []string{
-			"binaryBoolean",
-			"binaryString",
-			"normalize",
-			"classifyString",
-			"normalize",
-			"classifyString",
+		encodings := []Encoding{
+			BinaryBoolean,
+			BinaryString,
+			Normalize,
+			ClassifyString,
+			Normalize,
+			ClassifyString,
 		}
 
 		table := [][]string{
