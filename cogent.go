@@ -48,8 +48,8 @@ func (n *node) reset() {
 }
 
 type layer struct {
-	Nodes          []*node `json:"nodes"`
-	ActivationName string  `json:"activationName"`
+	Nodes          []*node        `json:"nodes"`
+	ActivationName ActivationType `json:"activationName"`
 }
 
 type neuralNetwork struct {
@@ -355,7 +355,7 @@ type Swarm struct {
 //LayerConfig x
 type LayerConfig struct {
 	NodeCount      int
-	ActivationName string
+	ActivationName ActivationType
 }
 
 //NeuralNetworkConfiguration x
