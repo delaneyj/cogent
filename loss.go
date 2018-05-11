@@ -2,33 +2,33 @@ package cogent
 
 import "math"
 
-//EntropyType x
-type EntropyType string
+//LossType x
+type LossType string
 
-//Entropy Constants
+//Loss Constants
 const (
-	SquaredEntropy                              = "squaredEntropy"
-	CrossEntropy                                = "crossEntropy"
-	ExponentialEntropy                          = "exponentialEntropy"
-	HellingerDistanceEntropy                    = "hellingerDistanceEntropy"
-	KullbackLeiblerDivergenceEntropy            = "kullbackLeiblerDivergenceEntropy"
-	GeneralizedKullbackLeiblerDivergenceEntropy = "generalizedKullbackLeiblerDivergenceEntropy"
-	ItakuraSaitoDistanceEntropy                 = "itakuraSaitoDistanceEntropy"
+	SquaredLoss                              = "squaredLoss"
+	CrossLoss                                = "crossLoss"
+	ExponentialLoss                          = "exponentialLoss"
+	HellingerDistanceLoss                    = "hellingerDistanceLoss"
+	KullbackLeiblerDivergenceLoss            = "kullbackLeiblerDivergenceLoss"
+	GeneralizedKullbackLeiblerDivergenceLoss = "generalizedKullbackLeiblerDivergenceLoss"
+	ItakuraSaitoDistanceLoss                 = "itakuraSaitoDistanceLoss"
 )
 
-var entropyFns = map[EntropyType]entropyFn{
-	SquaredEntropy:                              squaredEntropy,
-	CrossEntropy:                                crossEntropy,
-	ExponentialEntropy:                          exponentialEntropy,
-	HellingerDistanceEntropy:                    hellingerDistanceEntropy,
-	KullbackLeiblerDivergenceEntropy:            kullbackLeiblerDivergenceEntropy,
-	GeneralizedKullbackLeiblerDivergenceEntropy: generalizedKullbackLeiblerDivergenceEntropy,
-	ItakuraSaitoDistanceEntropy:                 itakuraSaitoDistanceEntropy,
+var lossFns = map[LossType]lossFn{
+	SquaredLoss:                              squaredLoss,
+	CrossLoss:                                crossLoss,
+	ExponentialLoss:                          exponentialLoss,
+	HellingerDistanceLoss:                    hellingerDistanceLoss,
+	KullbackLeiblerDivergenceLoss:            kullbackLeiblerDivergenceLoss,
+	GeneralizedKullbackLeiblerDivergenceLoss: generalizedKullbackLeiblerDivergenceLoss,
+	ItakuraSaitoDistanceLoss:                 itakuraSaitoDistanceLoss,
 }
 
-type entropyFn func(want, actual []float64) float64
+type lossFn func(want, actual []float64) float64
 
-func squaredEntropy(want, actual []float64) float64 {
+func squaredLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(actual)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")
@@ -43,7 +43,7 @@ func squaredEntropy(want, actual []float64) float64 {
 	return sum
 }
 
-func crossEntropy(want, actual []float64) float64 {
+func crossLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(want)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")
@@ -59,11 +59,11 @@ func crossEntropy(want, actual []float64) float64 {
 	return -sum
 }
 
-func exponentialEntropy(want, actual []float64) float64 {
-	return math.Exp(squaredEntropy(want, actual))
+func exponentialLoss(want, actual []float64) float64 {
+	return math.Exp(squaredLoss(want, actual))
 }
 
-func hellingerDistanceEntropy(want, actual []float64) float64 {
+func hellingerDistanceLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(actual)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")
@@ -78,7 +78,7 @@ func hellingerDistanceEntropy(want, actual []float64) float64 {
 	return (1 / math.Sqrt2) * math.Sqrt(sum)
 }
 
-func kullbackLeiblerDivergenceEntropy(want, actual []float64) float64 {
+func kullbackLeiblerDivergenceLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(actual)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")
@@ -95,7 +95,7 @@ func kullbackLeiblerDivergenceEntropy(want, actual []float64) float64 {
 	return sum
 }
 
-func generalizedKullbackLeiblerDivergenceEntropy(want, actual []float64) float64 {
+func generalizedKullbackLeiblerDivergenceLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(actual)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")
@@ -116,7 +116,7 @@ func generalizedKullbackLeiblerDivergenceEntropy(want, actual []float64) float64
 	return xSum - ySum + zSum
 }
 
-func itakuraSaitoDistanceEntropy(want, actual []float64) float64 {
+func itakuraSaitoDistanceLoss(want, actual []float64) float64 {
 	wl, al := len(want), len(actual)
 	if wl != al || wl == 0 {
 		panic("expected and actual need to be same length")

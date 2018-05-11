@@ -54,27 +54,27 @@ type layer struct {
 }
 
 type neuralNetwork struct {
-	EntropyType EntropyType
+	LossType    LossType
 	Layers      []*layer `json:"layers"`
 	WeightCount int      `json:"weightCount"`
 
 	CurrentFitnessError float64 `json:"currentFitnessError"`
-	BestFitnessEntropy  float64 `json:"BestFitnessEntropy"`
+	BestFitnessloss     float64 `json:"BestFitnessloss"`
 	bestWeights         []float64
-	entropyFn           entropyFn
+	lossFn              lossFn
 }
 
 func newNeuralNetwork(config *NeuralNetworkConfiguration) *neuralNetwork {
-	fn := entropyFns[config.EntropyType]
+	fn := lossFns[config.LossType]
 	if fn == nil {
-		log.Fatalf("Invalid entropy type '%s'", config.EntropyType)
+		log.Fatalf("Invalid loss type '%s'", config.LossType)
 	}
 	nn := neuralNetwork{
 		Layers:              make([]*layer, len(config.LayerConfigs)),
 		CurrentFitnessError: math.MaxFloat64,
-		BestFitnessEntropy:  math.MaxFloat64,
-		EntropyType:         config.EntropyType,
-		entropyFn:           fn,
+		BestFitnessloss:     math.MaxFloat64,
+		LossType:            config.LossType,
+		lossFn:              fn,
 	}
 	weightCount := 0
 
@@ -234,27 +234,27 @@ func (nn *neuralNetwork) train(trainingData []Data, bestSwarmWeights, bestGlobal
 	}
 
 	// 3. use new position to compute new error
-	nn.checkAndSetEntropy(trainingData)
+	nn.checkAndSetloss(trainingData)
 
 	// 4. optional: does curr particle die?
 	deathChance := rand.Float64()
 	if deathChance < probablityOfDeath {
 		nn.reset()
-		nn.checkAndSetEntropy(trainingData)
+		nn.checkAndSetloss(trainingData)
 	}
 
 	return nn.CurrentFitnessError
 }
 
-func (nn *neuralNetwork) checkAndSetEntropy(data []Data) float64 {
-	entropy := nn.calculateMeanEntropy(data)
+func (nn *neuralNetwork) checkAndSetloss(data []Data) float64 {
+	loss := nn.calculateMeanLoss(data)
 
-	nn.CurrentFitnessError = entropy
-	if entropy < nn.BestFitnessEntropy {
-		nn.BestFitnessEntropy = entropy
+	nn.CurrentFitnessError = loss
+	if loss < nn.BestFitnessloss {
+		nn.BestFitnessloss = loss
 		nn.bestWeights = nn.weights()
 	}
-	return entropy
+	return loss
 }
 
 func (nn *neuralNetwork) reset() {
@@ -264,7 +264,7 @@ func (nn *neuralNetwork) reset() {
 		}
 	}
 	nn.CurrentFitnessError = math.MaxFloat64
-	nn.BestFitnessEntropy = math.MaxFloat64
+	nn.BestFitnessloss = math.MaxFloat64
 }
 
 func (nn *neuralNetwork) activate(intialInputs ...float64) []float64 {
@@ -321,15 +321,15 @@ func (nn *neuralNetwork) classificationAccuracy(testData []Data) float64 {
 	return float64(correctCount) / float64(len(testData))
 }
 
-func (nn *neuralNetwork) calculateMeanEntropy(data []Data) float64 {
+func (nn *neuralNetwork) calculateMeanLoss(data []Data) float64 {
 	sum := 0.0
 	for _, d := range data {
 		actualOuputs := nn.activate(d.Inputs...)
-		err := nn.entropyFn(d.Outputs, actualOuputs)
+		err := nn.lossFn(d.Outputs, actualOuputs)
 		sum += err
 	}
-	entropy := sum / float64(len(data))
-	return entropy
+	loss := sum / float64(len(data))
+	return loss
 }
 
 //Data x
@@ -340,14 +340,14 @@ type Data struct {
 
 type swarm struct {
 	particles            []*neuralNetwork
-	bestFitnessEntropy   float64
+	bestFitnessloss      float64
 	bestFitnessPositions []float64
 }
 
 //MultiSwarm x
 type MultiSwarm struct {
 	swarms               []*swarm
-	bestFitnessEntropy   float64
+	bestFitnessloss      float64
 	bestFitnessPositions []float64
 }
 
@@ -359,7 +359,7 @@ type LayerConfig struct {
 
 //NeuralNetworkConfiguration x
 type NeuralNetworkConfiguration struct {
-	EntropyType  EntropyType
+	LossType     LossType
 	InputCount   int
 	LayerConfigs []LayerConfig
 }
@@ -378,13 +378,13 @@ func NewMultiSwarm(config *MultiSwarmConfiguration) *MultiSwarm {
 	}
 
 	ms := MultiSwarm{
-		swarms:             make([]*swarm, config.SwarmCount),
-		bestFitnessEntropy: math.MaxFloat64,
+		swarms:          make([]*swarm, config.SwarmCount),
+		bestFitnessloss: math.MaxFloat64,
 	}
 	for i := range ms.swarms {
 		s := swarm{
-			particles:          make([]*neuralNetwork, config.ParticleCount),
-			bestFitnessEntropy: math.MaxFloat64,
+			particles:       make([]*neuralNetwork, config.ParticleCount),
+			bestFitnessloss: math.MaxFloat64,
 		}
 
 		for i := 0; i < config.ParticleCount; i++ {
@@ -400,37 +400,38 @@ func NewMultiSwarm(config *MultiSwarmConfiguration) *MultiSwarm {
 func (ms *MultiSwarm) Train(trainingData []Data) int {
 	tries := 0
 
-	//set entropy for given training set
+	//set loss for given training set
 	for _, s := range ms.swarms {
 		for _, p := range s.particles {
-			fitnessError := p.checkAndSetEntropy(trainingData)
-			if fitnessError < s.bestFitnessEntropy {
+			fitnessError := p.checkAndSetloss(trainingData)
+			if fitnessError < s.bestFitnessloss {
 				w := p.weights()
-				s.bestFitnessEntropy = fitnessError
+				s.bestFitnessloss = fitnessError
 				s.bestFitnessPositions = w
 
-				if fitnessError < ms.bestFitnessEntropy {
-					ms.bestFitnessEntropy = fitnessError
+				if fitnessError < ms.bestFitnessloss {
+					ms.bestFitnessloss = fitnessError
 					ms.bestFitnessPositions = w
 				}
 			}
 		}
 	}
 
-	if ms.bestFitnessEntropy == math.MaxFloat64 {
+	if ms.bestFitnessloss == math.MaxFloat64 {
 		log.Fatal("oh noes")
 	}
 
-	for _, s := range ms.swarms {
-		// process particles in random order
-		sequence := make([]int, len(s.particles))
-		for i := range sequence {
-			sequence[i] = i
-		}
+	for i := 0; i < maxIterations; i++ {
+		for si, s := range ms.swarms {
+			// process particles in random order
+			sequence := make([]int, len(s.particles))
+			for i := range sequence {
+				sequence[i] = i
+			}
 
-		// log.Printf("Best global error %f.", s.bestFitnessEntropy)
-		for i := 0; i < maxIterations; i++ {
-			if s.bestFitnessEntropy <= targetAccuracy {
+			// log.Printf("Best global error %f.", s.bestFitnessloss)
+
+			if s.bestFitnessloss <= targetAccuracy {
 				return tries
 			}
 
@@ -442,14 +443,17 @@ func (ms *MultiSwarm) Train(trainingData []Data) int {
 				mse := currentParticle.train(trainingData, s.bestFitnessPositions, ms.bestFitnessPositions)
 				tries++
 
-				if mse < s.bestFitnessEntropy {
+				if mse < s.bestFitnessloss {
 					w := currentParticle.weights()
-					// log.Printf("New global best found fitness error %9f => %9f on try %d.", s.bestFitnessEntropy, mse, tries)
-					s.bestFitnessEntropy = mse
+
+					s.bestFitnessloss = mse
 					s.bestFitnessPositions = w
 
-					if mse < ms.bestFitnessEntropy {
-						ms.bestFitnessEntropy = mse
+					if mse < ms.bestFitnessloss {
+						msg := "<%d:%d:%d> New global best found fitness error %9f => %9f on try %d."
+						log.Printf(msg, i, si, pi, ms.bestFitnessloss, mse, tries)
+
+						ms.bestFitnessloss = mse
 						ms.bestFitnessPositions = w
 					}
 				}
@@ -475,10 +479,10 @@ func (ms *MultiSwarm) ClassificationAccuracy(testData []Data) float64 {
 	var swarmBest, globalBest *neuralNetwork
 	for _, s := range ms.swarms {
 		for _, p := range s.particles {
-			if swarmBest == nil || p.BestFitnessEntropy < swarmBest.BestFitnessEntropy {
+			if swarmBest == nil || p.BestFitnessloss < swarmBest.BestFitnessloss {
 				swarmBest = p
 
-				if globalBest == nil || p.BestFitnessEntropy < globalBest.BestFitnessEntropy {
+				if globalBest == nil || p.BestFitnessloss < globalBest.BestFitnessloss {
 					globalBest = p
 				}
 			}
@@ -489,11 +493,24 @@ func (ms *MultiSwarm) ClassificationAccuracy(testData []Data) float64 {
 	return globalBest.classificationAccuracy(testData)
 }
 
+//Predict x
+func (ms *MultiSwarm) Predict(inputs ...float64) []float64 {
+	var globalBest *neuralNetwork
+	for _, s := range ms.swarms {
+		for _, p := range s.particles {
+			if globalBest == nil || p.BestFitnessloss < globalBest.BestFitnessloss {
+				globalBest = p
+			}
+		}
+	}
+	return globalBest.activate(inputs...)
+}
+
 func (ms *MultiSwarm) String() string {
 	var best *neuralNetwork
 	for _, s := range ms.swarms {
 		for _, p := range s.particles {
-			if best == nil || p.BestFitnessEntropy < best.BestFitnessEntropy {
+			if best == nil || p.BestFitnessloss < best.BestFitnessloss {
 				best = p
 			}
 		}

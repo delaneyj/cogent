@@ -1,6 +1,7 @@
 package cogent
 
 import (
+	"math"
 	"math/rand"
 
 	"testing"
@@ -12,8 +13,8 @@ func basicMathConfig() *MultiSwarmConfiguration {
 	return &MultiSwarmConfiguration{
 		SwarmCount: 5,
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
-			EntropyType: CrossEntropy,
-			InputCount:  2,
+			LossType:   CrossLoss,
+			InputCount: 2,
 			LayerConfigs: []LayerConfig{
 				LayerConfig{
 					NodeCount:      3,
@@ -54,7 +55,7 @@ func Test_XOR(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 152, tries)
+	assert.Equal(t, 168, tries)
 }
 
 func Test_AND(t *testing.T) {
@@ -82,7 +83,7 @@ func Test_AND(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 136, tries)
+	assert.Equal(t, 112, tries)
 }
 
 func Test_NOT(t *testing.T) {
@@ -110,7 +111,7 @@ func Test_NOT(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 32, tries)
+	assert.Equal(t, 48, tries)
 }
 
 func Test_OR(t *testing.T) {
@@ -138,7 +139,7 @@ func Test_OR(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 16, tries)
+	assert.Equal(t, 72, tries)
 }
 
 func Test_NAND(t *testing.T) {
@@ -165,7 +166,7 @@ func Test_NAND(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 32, tries)
+	assert.Equal(t, 88, tries)
 }
 
 func Test_NOR(t *testing.T) {
@@ -192,7 +193,7 @@ func Test_NOR(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 32, tries)
+	assert.Equal(t, 48, tries)
 }
 
 func Test_XNOR(t *testing.T) {
@@ -219,7 +220,7 @@ func Test_XNOR(t *testing.T) {
 	tries := s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 16904, tries)
+	assert.Equal(t, 1360, tries)
 }
 
 func Test_Flowers(t *testing.T) {
@@ -263,8 +264,8 @@ func Test_Flowers(t *testing.T) {
 	config := MultiSwarmConfiguration{
 		SwarmCount: 5,
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
-			EntropyType: CrossEntropy,
-			InputCount:  4,
+			LossType:   CrossLoss,
+			InputCount: 4,
 			LayerConfigs: []LayerConfig{
 				LayerConfig{
 					NodeCount:      10,
@@ -283,7 +284,73 @@ func Test_Flowers(t *testing.T) {
 
 	accuracy := s.ClassificationAccuracy(testData)
 	assert.Equal(t, 1.0, accuracy)
-	assert.Equal(t, 3192, tries)
+	assert.Equal(t, 1336, tries)
+}
+
+func Test_Rastrigin(t *testing.T) {
+	const tau = math.Pi * 2
+	rand.Seed(1)
+	samples := 100
+	positiveRange := 5.12
+	trainData := make([]Data, samples)
+	for i := range trainData {
+		x := (2 * positiveRange * rand.Float64()) - positiveRange
+		y := (2 * positiveRange * rand.Float64()) - positiveRange
+		z := y*y + x*x - 10*(math.Cos(tau*x)+math.Cos(tau*y)) + 20
+		data := Data{[]float64{x, y}, []float64{z}}
+		trainData[i] = data
+	}
+	//Put the real global minima for sure
+	trainData[0] = Data{Inputs: []float64{0, 0}, Outputs: []float64{0}}
+
+	config := MultiSwarmConfiguration{
+		SwarmCount: 5,
+		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
+			LossType:   ItakuraSaitoDistanceLoss,
+			InputCount: 2,
+			LayerConfigs: []LayerConfig{
+				LayerConfig{
+					NodeCount:      10,
+					ActivationName: Sigmoid,
+				},
+				LayerConfig{
+					NodeCount:      10,
+					ActivationName: Sigmoid,
+				},
+				LayerConfig{
+					NodeCount:      10,
+					ActivationName: HyperbolicTangent,
+				},
+				LayerConfig{
+					NodeCount:      10,
+					ActivationName: HyperbolicTangent,
+				},
+				LayerConfig{
+					NodeCount:      10,
+					ActivationName: HyperbolicTangent,
+				},
+				LayerConfig{
+					NodeCount:      5,
+					ActivationName: LeakyReLU,
+				},
+				LayerConfig{
+					NodeCount:      3,
+					ActivationName: LeakyReLU,
+				},
+				LayerConfig{
+					NodeCount:      1,
+					ActivationName: LeakyReLU,
+				},
+			},
+		},
+		ParticleCount: 1,
+	}
+	s := NewMultiSwarm(&config)
+	tries := s.Train(trainData)
+
+	actual := s.Predict(0, 0)
+	assert.Equal(t, -24.344032236124725, actual[0])
+	assert.Equal(t, 3500, tries)
 }
 
 func Test_Error(t *testing.T) {
@@ -305,34 +372,34 @@ func Test_Error(t *testing.T) {
 		},
 	}
 	for _, tt := range []struct {
-		et       EntropyType
+		lt       LossType
 		expected []float64
 	}{
-		{SquaredEntropy, []float64{
+		{SquaredLoss, []float64{
 			0.5, 0.5,
 		}},
-		{CrossEntropy, []float64{
+		{CrossLoss, []float64{
 			6.656104149082171, 9.299352568611798,
 		}},
-		{ExponentialEntropy, []float64{
+		{ExponentialLoss, []float64{
 			1.6485192252482843, 1.6487212484141207,
 		}},
-		{HellingerDistanceEntropy, []float64{
+		{HellingerDistanceLoss, []float64{
 			0.48645931737868475, 0.45235979244565366,
 		}},
-		{KullbackLeiblerDivergenceEntropy, []float64{
+		{KullbackLeiblerDivergenceLoss, []float64{
 			24.321514050007988, 18.123348049136933,
 		}},
-		{GeneralizedKullbackLeiblerDivergenceEntropy, []float64{
+		{GeneralizedKullbackLeiblerDivergenceLoss, []float64{
 			53.42095928253063, 65.44891067419549,
 		}},
-		{ItakuraSaitoDistanceEntropy, []float64{
+		{ItakuraSaitoDistanceLoss, []float64{
 			1.5654031833143122e+06, 1487.9011553625498,
 		}},
 	} {
 		nn := newNeuralNetwork(&NeuralNetworkConfiguration{
-			EntropyType: tt.et,
-			InputCount:  2,
+			LossType:   tt.lt,
+			InputCount: 2,
 			LayerConfigs: []LayerConfig{
 				{5, ReLU},
 				{2, Softmax},
@@ -340,8 +407,8 @@ func Test_Error(t *testing.T) {
 		})
 		for i, e := range examples {
 			expected := tt.expected[i]
-			actual := nn.calculateMeanEntropy(e)
-			assert.Equal(t, expected, actual, string(tt.et))
+			actual := nn.calculateMeanLoss(e)
+			assert.Equal(t, expected, actual, string(tt.lt))
 		}
 	}
 }
@@ -349,8 +416,8 @@ func Test_Error(t *testing.T) {
 func Test_internals(t *testing.T) {
 	rand.Seed(1)
 	nn := newNeuralNetwork(&NeuralNetworkConfiguration{
-		EntropyType: CrossEntropy,
-		InputCount:  2,
+		LossType:   CrossLoss,
+		InputCount: 2,
 		LayerConfigs: []LayerConfig{
 			{2, ReLU},
 			{2, Softmax},
