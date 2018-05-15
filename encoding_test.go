@@ -8,14 +8,14 @@ import (
 
 //TestSwarm x
 func Test_BinaryEncoding(t *testing.T) {
-	assert.Equal(t, binaryEncoding(true), []float64{1})
-	assert.Equal(t, binaryEncoding(false), []float64{-1})
-	assert.Equal(t, binaryStringEncoding("male", "male"), []float64{1})
-	assert.Equal(t, binaryStringEncoding("female", "male"), []float64{-1})
+	assert.Equal(t, BinaryEncoding(true), []float64{1})
+	assert.Equal(t, BinaryEncoding(false), []float64{-1})
+	assert.Equal(t, BinaryStringEncoding("male", "male"), []float64{1})
+	assert.Equal(t, BinaryStringEncoding("female", "male"), []float64{-1})
 }
 
 func Test_ClassificationEncoding(t *testing.T) {
-	assert.Equal(t, classificationEncoding([]string{"foo", "bar", "baz", "foo"}), [][]float64{
+	assert.Equal(t, ClassificationEncoding([]string{"foo", "bar", "baz", "foo"}), [][]float64{
 		[]float64{0, 0, 1},
 		[]float64{0, 1, 0},
 		[]float64{1, 0, 0},
@@ -25,7 +25,7 @@ func Test_ClassificationEncoding(t *testing.T) {
 
 func Test_Normalization(t *testing.T) {
 	assert.Equal(t,
-		normalizeEncoding([]float64{60000, 24000, 30000, 30000, 18000, 56000}),
+		NormalizeEncoding([]float64{60000, 24000, 30000, 30000, 18000, 56000}),
 		[]float64{1.4892192139292129, -0.7760719847236746, -0.39852345161486, -0.39852345161486, -1.1536205178324892, 1.2375201918566698})
 }
 
@@ -48,7 +48,7 @@ func Test_Combine(t *testing.T) {
 		[]string{"true", "male", "56000.00", "rural", "39", "other"},
 	}
 
-	assert.Equal(t, tableEncoding(encodings, table...), [][]float64{
+	assert.Equal(t, TableEncoding(encodings, table...), [][]float64{
 		[]float64{
 			1, 1,
 			1.4892192139292129,

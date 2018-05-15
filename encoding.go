@@ -23,18 +23,18 @@ const (
 	ClassifyString
 )
 
-func binaryEncoding(value bool) []float64 {
+func BinaryEncoding(value bool) []float64 {
 	if value {
 		return []float64{1}
 	}
 	return []float64{-1}
 }
 
-func binaryStringEncoding(value, trueValue string) []float64 {
-	return binaryEncoding(value == trueValue)
+func BinaryStringEncoding(value, trueValue string) []float64 {
+	return BinaryEncoding(value == trueValue)
 }
 
-func classificationEncoding(values []string) [][]float64 {
+func ClassificationEncoding(values []string) [][]float64 {
 	set := map[string]int{}
 
 	i := 0
@@ -58,7 +58,7 @@ func classificationEncoding(values []string) [][]float64 {
 	return results
 }
 
-func normalizeEncoding(raw []float64) []float64 {
+func NormalizeEncoding(raw []float64) []float64 {
 	count := len(raw)
 	floatCount := float64(count)
 
@@ -83,7 +83,7 @@ func normalizeEncoding(raw []float64) []float64 {
 	return results
 }
 
-func tableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
+func TableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
 	results := make([][]float64, len(rows))
 
 	columns := make([][][]float64, len(encodings))
@@ -100,11 +100,11 @@ func tableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
 		case BinaryBoolean:
 			for k, s := range rawColumn {
 				b, _ := strconv.ParseBool(s)
-				column[k] = binaryEncoding(b)
+				column[k] = BinaryEncoding(b)
 			}
 		case BinaryString:
 			for k, s := range rawColumn {
-				column[k] = binaryStringEncoding(s, rawColumn[0])
+				column[k] = BinaryStringEncoding(s, rawColumn[0])
 			}
 		case Normalize:
 			floats := make([]float64, len(rawColumn))
@@ -112,12 +112,12 @@ func tableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
 				f, _ := strconv.ParseFloat(s, 64)
 				floats[i] = f
 			}
-			normalized := normalizeEncoding(floats)
+			normalized := NormalizeEncoding(floats)
 			for i, x := range normalized {
 				column[i] = []float64{x}
 			}
 		case ClassifyString:
-			column = classificationEncoding(rawColumn)
+			column = ClassificationEncoding(rawColumn)
 		default:
 			log.Fatal(encoding)
 		}
