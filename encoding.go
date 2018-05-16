@@ -23,6 +23,7 @@ const (
 	ClassifyString
 )
 
+//BinaryEncoding x
 func BinaryEncoding(value bool) []float64 {
 	if value {
 		return []float64{1}
@@ -30,10 +31,12 @@ func BinaryEncoding(value bool) []float64 {
 	return []float64{-1}
 }
 
+//BinaryStringEncoding x
 func BinaryStringEncoding(value, trueValue string) []float64 {
 	return BinaryEncoding(value == trueValue)
 }
 
+//ClassificationEncoding x
 func ClassificationEncoding(values []string) [][]float64 {
 	set := map[string]int{}
 
@@ -58,6 +61,7 @@ func ClassificationEncoding(values []string) [][]float64 {
 	return results
 }
 
+//NormalizeEncoding x
 func NormalizeEncoding(raw []float64) []float64 {
 	count := len(raw)
 	floatCount := float64(count)
@@ -83,6 +87,7 @@ func NormalizeEncoding(raw []float64) []float64 {
 	return results
 }
 
+//TableEncoding x
 func TableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
 	results := make([][]float64, len(rows))
 
