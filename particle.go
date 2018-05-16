@@ -8,9 +8,12 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 type particle struct {
+	id      string
 	fn      lossFn
 	data    *NeuralNetworkData
 	db      *badger.DB
@@ -55,7 +58,6 @@ func newParticle(swarmID []byte, db *badger.DB) *particle {
 	data := NeuralNetworkData{
 		Layers:      make([]*LayerData, len(nnConfig.LayerConfigs)),
 		CurrentLoss: math.MaxFloat64,
-		Best:        &Position{Loss: math.MaxFloat64},
 		Loss:        nnConfig.Loss,
 	}
 
@@ -73,8 +75,13 @@ func newParticle(swarmID []byte, db *badger.DB) *particle {
 		data.Layers[i] = &l
 		previousLayerCount = layerConfig.NodeCount
 	}
+	data.Best = &Position{
+		Loss:             math.MaxFloat64,
+		WeightsAndBiases: data.weights(),
+	}
 
 	return &particle{
+		id:      uuid.New().String(),
 		fn:      fn,
 		data:    &data,
 		db:      db,
@@ -86,88 +93,113 @@ func (p *particle) train(wg *sync.WaitGroup) {
 	var trainingData TrainingData
 	var bestSwarm, bestGlobal Position
 	var config TrainingConfiguration
-	checkErr(p.db.View(func(txn *badger.Txn) error {
-		var x *badger.Item
 
-		x, err := txn.Get(trainingConfigPath)
-		checkErr(err)
-		b, _ := x.Value()
-		err = config.Unmarshal(b)
-		checkErr(err)
+	maxIterations := int(math.MaxInt64)
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		checkErr(p.db.View(func(txn *badger.Txn) error {
+			var x *badger.Item
 
-		x, err = txn.Get(globalBestPath)
-		checkErr(err)
-		b, _ = x.Value()
-		err = bestGlobal.Unmarshal(b)
-		checkErr(err)
+			x, err := txn.Get(trainingConfigPath)
+			if err != nil {
+				return errors.Wrap(err, "can't get training config")
+			}
+			b, _ := x.Value()
+			err = config.Unmarshal(b)
+			if err != nil {
+				return errors.Wrap(err, "can't unmarshal training config")
+			}
 
-		swarmBestPath := fmt.Sprintf(swarmBestFormat, p.swarmID)
-		x, err = txn.Get([]byte(swarmBestPath))
-		checkErr(err)
-		b, _ = x.Value()
-		err = bestSwarm.Unmarshal(b)
-		checkErr(err)
+			x, err = txn.Get(globalBestPath)
+			if err != nil {
+				return errors.Wrap(err, "can't get global best")
+			}
+			b, _ = x.Value()
+			err = bestGlobal.Unmarshal(b)
+			if err != nil {
+				return errors.Wrap(err, "can't unmarshal global best")
+			}
 
-		x, err = txn.Get(trainingDataPath)
-		checkErr(err)
-		b, _ = x.Value()
-		err = trainingData.Unmarshal(b)
-		checkErr(err)
+			x, err = txn.Get(swarmBestPath(p.swarmID))
+			if err != nil {
+				return errors.Wrap(err, "can't get swarm best")
+			}
+			b, _ = x.Value()
+			err = bestSwarm.Unmarshal(b)
+			if err != nil {
+				return errors.Wrap(err, "can't unmarshal swarm best")
+			}
 
-		return nil
-	}))
+			x, err = txn.Get(trainingDataPath)
+			if err != nil {
+				return errors.Wrap(err, "can't get training data")
+			}
+			b, _ = x.Value()
+			err = trainingData.Unmarshal(b)
+			if err != nil {
+				return errors.Wrap(err, "can't unmarshal training data")
+			}
 
-	flatArrayIndex := 0
-	// Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
-	for _, l := range p.data.Layers {
-		for i, currentLocalWeight := range l.WeightsAndBiases {
-			bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
-			bestSwarmPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
-			bestLocalPosition := p.data.Best.WeightsAndBiases[flatArrayIndex]
+			return nil
+		}))
 
-			currentLocalVelocity := l.Velocities[i]
-
-			oldVelocityFactor := config.InertiaWeight * currentLocalVelocity
-
-			localRandomness := rand.Float64()
-			bestLocationDelta := bestLocalPosition - currentLocalWeight
-			localPositionFactor := config.CognitiveWeight * localRandomness * bestLocationDelta
-
-			swarmRandomness := rand.Float64()
-			bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
-			swarmPositionFactor := config.SocialWeight * swarmRandomness * bestSwarmlDelta
-
-			globalRandomness := rand.Float64()
-			bestGlobalDelta := bestGlobalPosition - currentLocalWeight
-			globalPositionFactor := config.GlobalWeight * globalRandomness * bestGlobalDelta
-
-			revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
-			l.Velocities[i] = revisedVelocity
-
-			flatArrayIndex++
+		maxIterations = int(config.MaxIterations)
+		if bestGlobal.Loss <= config.TargetAccuracy {
+			log.Printf("early stop at %d iterations", iteration)
+			break
 		}
-	}
 
-	flatArrayIndex = 0
-	for _, l := range p.data.Layers {
-		for i, w := range l.WeightsAndBiases {
-			v := l.Velocities[i]
-			revisedPosition := w + v
-			wr := config.WeightRange
-			clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
-			decayed := clamped * (1 + config.WeightDecayRate)       // decay (large weights tend to overfit)
+		flatArrayIndex := 0
+		// Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
+		for _, l := range p.data.Layers {
+			for i, currentLocalWeight := range l.WeightsAndBiases {
+				bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
+				bestSwarmPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
+				bestLocalPosition := p.data.Best.WeightsAndBiases[flatArrayIndex]
 
-			l.WeightsAndBiases[i] = decayed
-			flatArrayIndex++
+				currentLocalVelocity := l.Velocities[i]
+
+				oldVelocityFactor := config.InertiaWeight * currentLocalVelocity
+
+				localRandomness := rand.Float64()
+				bestLocationDelta := bestLocalPosition - currentLocalWeight
+				localPositionFactor := config.CognitiveWeight * localRandomness * bestLocationDelta
+
+				swarmRandomness := rand.Float64()
+				bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
+				swarmPositionFactor := config.SocialWeight * swarmRandomness * bestSwarmlDelta
+
+				globalRandomness := rand.Float64()
+				bestGlobalDelta := bestGlobalPosition - currentLocalWeight
+				globalPositionFactor := config.GlobalWeight * globalRandomness * bestGlobalDelta
+
+				revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
+				l.Velocities[i] = revisedVelocity
+
+				flatArrayIndex++
+			}
 		}
-	}
 
-	p.checkAndSetLoss(p.db, trainingData.Examples)
+		flatArrayIndex = 0
+		for _, l := range p.data.Layers {
+			for i, w := range l.WeightsAndBiases {
+				v := l.Velocities[i]
+				revisedPosition := w + v
+				wr := config.WeightRange
+				clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
+				decayed := clamped * (1 + config.WeightDecayRate)       // decay (large weights tend to overfit)
 
-	deathChance := rand.Float64()
-	if deathChance < config.ProbablityOfDeath {
-		p.data.reset(config.WeightRange)
+				l.WeightsAndBiases[i] = decayed
+				flatArrayIndex++
+			}
+		}
+
 		p.checkAndSetLoss(p.db, trainingData.Examples)
+
+		deathChance := rand.Float64()
+		if deathChance < config.ProbablityOfDeath {
+			p.data.reset(config.WeightRange)
+			p.checkAndSetLoss(p.db, trainingData.Examples)
+		}
 	}
 
 	wg.Done()
@@ -183,33 +215,74 @@ func (p *particle) checkAndSetLoss(db *badger.DB, data []*Data) float64 {
 		p.data.Best.Loss = loss
 		p.data.Best.WeightsAndBiases = bestPositions
 
-		checkErr(db.Update(func(txn *badger.Txn) error {
-			var swarmBest, globalBest Position
-			swarmBestPath := []byte(fmt.Sprintf(swarmBestFormat, p.swarmID))
-			i, err := txn.Get(swarmBestPath)
-			checkErr(err)
-			x, err := i.Value()
-			checkErr(swarmBest.Unmarshal(x))
+		err := badger.ErrConflict
 
-			if loss < swarmBest.Loss {
-				b, err := p.data.Best.Marshal()
-				checkErr(err)
-
-				err = txn.Set(swarmBestPath, b)
-				checkErr(err)
-
-				i, err := txn.Get(globalBestPath)
-				checkErr(err)
-				x, err := i.Value()
-				checkErr(globalBest.Unmarshal(x))
-
-				if loss < globalBest.Loss {
-					err := txn.Set(globalBestPath, b)
-					checkErr(err)
+		globalFound := false
+		var from, to float64
+		for err == badger.ErrConflict {
+			err = db.Update(func(txn *badger.Txn) error {
+				var swarmBest Position
+				swarmBestPath := []byte(fmt.Sprintf(swarmBestFormat, p.swarmID))
+				i, err := txn.Get(swarmBestPath)
+				if err != nil {
+					return errors.Wrap(err, "can't get swarm best")
 				}
-			}
-			return nil
-		}))
+				x, err := i.Value()
+				if err != nil {
+					return errors.Wrap(err, "can't get value swarm best")
+				}
+				err = swarmBest.Unmarshal(x)
+				if err != nil {
+					return errors.Wrap(err, "can't unmarshal swarm best")
+				}
+
+				if loss < swarmBest.Loss {
+					updatedBest := Position{
+						Loss:             loss,
+						WeightsAndBiases: bestPositions,
+					}
+					updatedBestBytes, err := updatedBest.Marshal()
+					if err != nil {
+						return errors.Wrap(err, "can't marshal new best")
+					}
+
+					err = txn.Set(swarmBestPath, updatedBestBytes)
+					if err != nil {
+						return errors.Wrap(err, "can't set swarm best")
+					}
+
+					var globalBest Position
+					i, err := txn.Get(globalBestPath)
+					if err != nil {
+						return errors.Wrap(err, "can't get global best")
+					}
+					x, err := i.Value()
+					if err != nil {
+						return errors.Wrap(err, "can't get value global best")
+					}
+					err = globalBest.Unmarshal(x)
+					if err != nil {
+						return errors.Wrap(err, "can't unmarshal global best")
+					}
+
+					if loss < globalBest.Loss {
+						err := txn.Set(globalBestPath, updatedBestBytes)
+						if err != nil {
+							return errors.Wrap(err, "can't set global best")
+						}
+
+						globalFound = true
+						from = globalBest.Loss
+						to = loss
+					}
+				}
+				return nil
+			})
+		}
+
+		if globalFound {
+			log.Printf("New global best found %f->%f from %s", from, to, p.id)
+		}
 	}
 	return loss
 }

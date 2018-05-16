@@ -117,7 +117,7 @@ func (nn *NeuralNetworkData) activate(intialInputs ...float64) []float64 {
 	return outputs
 }
 
-func (nn *NeuralNetworkData) classificationAccuracy(testData []Data) float64 {
+func (nn *NeuralNetworkData) classificationAccuracy(testData []*Data) float64 {
 	correctCount := 0 // percentage correct using winner-takes all
 	maxIndex := func(s []float64) int {
 		// index of largest value
@@ -146,7 +146,7 @@ func (nn *NeuralNetworkData) classificationAccuracy(testData []Data) float64 {
 
 func checkErr(err error) {
 	if err != nil {
+		log.Print(err)
 		runtime.Breakpoint()
-		log.Fatal(err)
 	}
 }

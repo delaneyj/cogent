@@ -85,7 +85,7 @@ message TrainingConfiguration{
 }
 
 message MultiSwarmConfiguration {
-	NeuralNetworkConfiguration neural_network_configuration=1;
-	uint32 swarm_count=2;    
-	uint32 particle_count=3; 
+	NeuralNetworkConfiguration neural_network_configuration = 2;
+	uint32 swarm_count=3;    
+	uint32 particle_count=4; 
 }
