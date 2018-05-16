@@ -2,38 +2,19 @@ package cogent
 
 import "math"
 
-//LossType x
-type LossType string
-
-//Loss Constants
-const (
-	SquaredLoss                              = "squaredLoss"
-	CrossLoss                                = "crossLoss"
-	ExponentialLoss                          = "exponentialLoss"
-	HellingerDistanceLoss                    = "hellingerDistanceLoss"
-	KullbackLeiblerDivergenceLoss            = "kullbackLeiblerDivergenceLoss"
-	GeneralizedKullbackLeiblerDivergenceLoss = "generalizedKullbackLeiblerDivergenceLoss"
-	ItakuraSaitoDistanceLoss                 = "itakuraSaitoDistanceLoss"
-)
-
-var lossFns = map[LossType]lossFn{
-	SquaredLoss:                              squaredLoss,
-	CrossLoss:                                crossLoss,
-	ExponentialLoss:                          exponentialLoss,
-	HellingerDistanceLoss:                    hellingerDistanceLoss,
-	KullbackLeiblerDivergenceLoss:            kullbackLeiblerDivergenceLoss,
-	GeneralizedKullbackLeiblerDivergenceLoss: generalizedKullbackLeiblerDivergenceLoss,
-	ItakuraSaitoDistanceLoss:                 itakuraSaitoDistanceLoss,
+var lossFns = map[Loss]lossFn{
+	Squared:                              squaredLoss,
+	Cross:                                crossLoss,
+	Exponential:                          exponentialLoss,
+	HellingerDistance:                    hellingerDistanceLoss,
+	KullbackLeiblerDivergence:            kullbackLeiblerDivergenceLoss,
+	GeneralizedKullbackLeiblerDivergence: generalizedKullbackLeiblerDivergenceLoss,
+	ItakuraSaitoDistance:                 itakuraSaitoDistanceLoss,
 }
 
 type lossFn func(want, actual []float64) float64
 
 func squaredLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(actual)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
-
 	sum := 0.0
 	for i, w := range want {
 		a := actual[i]
@@ -44,11 +25,6 @@ func squaredLoss(want, actual []float64) float64 {
 }
 
 func crossLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(want)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
-
 	sum := 0.0
 	for i, w := range want {
 		a := actual[i]

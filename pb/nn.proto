@@ -1,0 +1,91 @@
+syntax = "proto3";
+package cogent;
+
+message Data {
+    repeated double inputs=1;
+    repeated double outputs=2;
+}
+
+message TrainingData{
+    repeated Data examples = 1;
+}
+
+enum Activation {
+    Identity = 0; 
+    BinaryStep = 1;
+    Sigmoid = 2;
+    HyperbolicTangent = 3;
+    ArcTan = 4;
+    Softsign = 5;
+    ISRU = 6;
+    ReLU = 7;
+    LeakyReLU = 8;
+    ELU = 9;
+    SELU = 10;
+    SoftPlus = 11;
+    BentIdentity = 12;
+    Sinusoid = 13;
+    Sinc = 14;
+    Gaussian = 15;
+    Softmax = 16;
+    Maxout = 17;
+}
+
+enum Loss {
+    Squared= 0;
+    Cross= 1;
+    Exponential= 2;
+    HellingerDistance= 3;
+    KullbackLeiblerDivergence= 4;
+    GeneralizedKullbackLeiblerDivergence= 5;
+    ItakuraSaitoDistance= 6;
+}
+
+message LayerConfig {
+	uint32 node_count = 1;      
+	Activation activation = 2;
+}
+
+message LayerData {
+  uint32 node_count=1;
+  repeated double weights_and_biases=2;
+  repeated double velocities=3;
+  Activation activation=4;
+}
+
+message Position {
+    repeated double weights_and_biases = 1;
+    double loss = 2;
+}
+
+message NeuralNetworkConfiguration {
+	Loss     loss=1;
+	uint32 input_count=2;
+	repeated LayerConfig layer_configs = 3;
+}
+
+message NeuralNetworkData{
+    Loss loss = 1;
+    repeated LayerData layers = 2;
+    double current_loss = 3;
+    Position best=4;
+}
+
+message TrainingConfiguration{
+	double inertia_weight   = 1;
+	double cognitive_weight = 2;
+	double social_weight    = 3;
+	double global_weight    = 4;
+
+	uint32 maxIterations     = 5;
+	double target_accuracy    = 6;
+	double weight_range       = 7;
+	double weight_decay_rate   = 8;
+	double probablity_of_death = 9;
+}
+
+message MultiSwarmConfiguration {
+	NeuralNetworkConfiguration neural_network_configuration=1;
+	uint32 swarm_count=2;    
+	uint32 particle_count=3; 
+}

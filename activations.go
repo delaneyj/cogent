@@ -4,32 +4,7 @@ import "math"
 
 type activationFunction func(values []float64) []float64
 
-//ActivationType x
-type ActivationType string
-
-//Activations
-const (
-	Identity          = "identity"
-	BinaryStep        = "binaryStep"
-	Sigmoid           = "sigmoid"
-	HyperbolicTangent = "tanH"
-	ArcTan            = "arcTan"
-	Softsign          = "softsign"
-	ISRU              = "isru"
-	ReLU              = "reLu"
-	LeakyReLU         = "leakyReLu"
-	ELU               = "elu"
-	SELU              = "selu"
-	SoftPlus          = "softPlus"
-	BentIdentity      = "bentIdentity"
-	Sinusoid          = "sinusoid"
-	Sinc              = "sinc"
-	Gaussian          = "gaussian"
-	Softmax           = "softmax"
-	Maxout            = "maxout"
-)
-
-var activations = map[ActivationType]activationFunction{
+var activations = map[Activation]activationFunction{
 	Identity: func(values []float64) []float64 {
 		return values
 	},
