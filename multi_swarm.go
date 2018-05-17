@@ -102,29 +102,25 @@ func (ms *MultiSwarm) Train(training *TrainingData) {
 	wg.Wait()
 }
 
-//ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(testData ...*Data) float64 {
-	var globalBest *NeuralNetworkData
-
+//Best x
+func (ms *MultiSwarm) Best() *NeuralNetworkData {
+	var best *NeuralNetworkData
 	for _, s := range ms.swarms {
 		for _, p := range s.particles {
-			if globalBest == nil || p.data.Best.Loss < globalBest.Best.Loss {
-				globalBest = p.data
+			if best == nil || p.data.Best.Loss < best.Best.Loss {
+				best = p.data
 			}
 		}
 	}
-	return globalBest.classificationAccuracy(testData)
+	return best
+}
+
+//ClassificationAccuracy x
+func (ms *MultiSwarm) ClassificationAccuracy(testData ...*Data) float64 {
+	return ms.Best().ClassificationAccuracy(testData)
 }
 
 //Predict x
 func (ms *MultiSwarm) Predict(inputs ...float64) []float64 {
-	var globalBest *NeuralNetworkData
-	for _, s := range ms.swarms {
-		for _, p := range s.particles {
-			if globalBest == nil || p.data.Best.Loss < globalBest.Best.Loss {
-				globalBest = p.data
-			}
-		}
-	}
-	return globalBest.activate(inputs...)
+	return ms.Best().Activate(inputs...)
 }

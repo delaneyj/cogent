@@ -86,7 +86,7 @@ func (p *particle) train(wg *sync.WaitGroup) {
 
 		maxIterations = int(trainingConfig.MaxIterations)
 		if bestGlobal.Loss <= trainingConfig.TargetAccuracy {
-			log.Printf("early stop at %d iterations", iteration)
+			// log.Printf("early stop at %d iterations", iteration)
 			break
 		}
 
@@ -187,7 +187,7 @@ func (p *particle) calculateMeanLoss() float64 {
 
 	sum := 0.0
 	for _, d := range data {
-		actualOuputs := p.data.activate(d.Inputs...)
+		actualOuputs := p.data.Activate(d.Inputs...)
 		err := p.fn(d.Outputs, actualOuputs)
 		sum += err
 	}

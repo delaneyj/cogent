@@ -84,7 +84,8 @@ func (nn *NeuralNetworkData) reset(weightRange float64) {
 	nn.Best.Loss = math.MaxFloat64
 }
 
-func (nn *NeuralNetworkData) activate(intialInputs ...float64) []float64 {
+//Activate feeds forward through the network
+func (nn *NeuralNetworkData) Activate(intialInputs ...float64) []float64 {
 	inputs := append(intialInputs, 1) // add bias
 	var outputs []float64
 	for _, l := range nn.Layers {
@@ -108,8 +109,9 @@ func (nn *NeuralNetworkData) activate(intialInputs ...float64) []float64 {
 	return outputs
 }
 
-func (nn *NeuralNetworkData) classificationAccuracy(testData []*Data) float64 {
-	correctCount := 0 // percentage correct using winner-takes all
+//ClassificationAccuracy percentage correct using winner-takes all
+func (nn *NeuralNetworkData) ClassificationAccuracy(testData []*Data) float64 {
+	correctCount := 0
 	maxIndex := func(s []float64) int {
 		// index of largest value
 		bigIndex := 0
@@ -125,7 +127,7 @@ func (nn *NeuralNetworkData) classificationAccuracy(testData []*Data) float64 {
 
 	for _, d := range testData {
 		expectedOutput := d.Outputs
-		actualOuputs := nn.activate(d.Inputs...)
+		actualOuputs := nn.Activate(d.Inputs...)
 		i := maxIndex(actualOuputs)
 
 		if expectedOutput[i] == 1 {

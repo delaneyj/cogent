@@ -10,24 +10,37 @@ import (
 )
 
 func basicMathConfig() MultiSwarmConfiguration {
-	return MultiSwarmConfiguration{
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	deep := 1
+
+	lc := &LayerConfig{
+		NodeCount:  3,
+		Activation: ReLU,
+	}
+
+	sm := &LayerConfig{
+		NodeCount:  2,
+		Activation: Softmax,
+	}
+
+	msc := MultiSwarmConfiguration{
 		SwarmCount: 5,
 		NeuralNetworkConfiguration: &NeuralNetworkConfiguration{
-			Loss:       Cross,
-			InputCount: 2,
-			LayerConfigs: []*LayerConfig{
-				&LayerConfig{
-					NodeCount:  3,
-					Activation: ReLU,
-				},
-				&LayerConfig{
-					NodeCount:  2,
-					Activation: Softmax,
-				},
-			},
+			Loss:         Cross,
+			InputCount:   2,
+			LayerConfigs: make([]*LayerConfig, deep+1),
 		},
 		ParticleCount: 10,
 	}
+
+	i := 0
+	for ; i < deep; i++ {
+		msc.NeuralNetworkConfiguration.LayerConfigs[i] = lc
+	}
+	msc.NeuralNetworkConfiguration.LayerConfigs[i] = sm
+
+	return msc
 }
 
 func Test_XOR(t *testing.T) {
@@ -242,8 +255,6 @@ func Test_XNOR(t *testing.T) {
 }
 
 func Test_Flowers(t *testing.T) {
-	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{[]float64{6.3, 2.9, 5.6, 1.8}, []float64{1, 0, 0}},
@@ -292,7 +303,23 @@ func Test_Flowers(t *testing.T) {
 			LayerConfigs: []*LayerConfig{
 				{
 					NodeCount:  10,
-					Activation: HyperbolicTangent,
+					Activation: ReLU,
+				},
+				{
+					NodeCount:  10,
+					Activation: ReLU,
+				},
+				{
+					NodeCount:  10,
+					Activation: ReLU,
+				},
+				{
+					NodeCount:  10,
+					Activation: ReLU,
+				},
+				{
+					NodeCount:  10,
+					Activation: ReLU,
 				},
 				{
 					NodeCount:  3,

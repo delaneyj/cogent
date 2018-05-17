@@ -25,14 +25,14 @@ func squaredLoss(want, actual []float64) float64 {
 }
 
 func crossLoss(want, actual []float64) float64 {
+	eps := 1e-7 // to avoid log(0)
 	sum := 0.0
 	for i, w := range want {
 		a := actual[i]
-		if l := math.Log(a); !math.IsNaN(l) && !math.IsInf(l, 0) {
-			sum += l * w
-		}
+		x := math.Log((a + eps) / (w + eps))
+		sum += math.Abs(x)
 	}
-	return -sum
+	return sum
 }
 
 func exponentialLoss(want, actual []float64) float64 {
