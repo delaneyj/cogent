@@ -7,16 +7,7 @@ import (
 	"runtime"
 )
 
-const (
-	swarmBestFormat = "swarmBest:%s"
-)
-
 var (
-	neuralNetworkConfigPath = []byte("neuralNetworkConfig")
-	trainingConfigPath      = []byte("trainingConfig")
-	globalBestPath          = []byte("globalBest")
-	trainingDataPath        = []byte("trainingData")
-
 	//DefaultTrainingConfig x
 	DefaultTrainingConfig = TrainingConfiguration{
 		InertiaWeight:     0.729,
@@ -24,7 +15,7 @@ var (
 		SocialWeight:      1.49445,
 		GlobalWeight:      0.3645,
 		MaxIterations:     700,
-		TargetAccuracy:    0.0001,
+		TargetAccuracy:    0.000001,
 		WeightRange:       10,
 		WeightDecayRate:   0.01,
 		ProbablityOfDeath: 0.005,

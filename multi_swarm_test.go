@@ -18,7 +18,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 			LayerConfigs: []*LayerConfig{
 				&LayerConfig{
 					NodeCount:  3,
-					Activation: HyperbolicTangent,
+					Activation: ReLU,
 				},
 				&LayerConfig{
 					NodeCount:  2,
@@ -26,7 +26,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 				},
 			},
 		},
-		ParticleCount: 8,
+		ParticleCount: 10,
 	}
 }
 
@@ -57,11 +57,10 @@ func Test_XOR(t *testing.T) {
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
-	log.Print("XOR", time.Since(start))
+	log.Print("XOR ", time.Since(start))
 }
 
 func Test_AND(t *testing.T) {
@@ -89,7 +88,6 @@ func Test_AND(t *testing.T) {
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -120,7 +118,6 @@ func Test_NOT(t *testing.T) {
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -151,7 +148,6 @@ func Test_OR(t *testing.T) {
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -181,7 +177,6 @@ func Test_NAND(t *testing.T) {
 		},
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -211,7 +206,7 @@ func Test_NOR(t *testing.T) {
 		},
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
+
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -241,7 +236,6 @@ func Test_XNOR(t *testing.T) {
 		},
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 	accuracy := s.ClassificationAccuracy(trainData.Examples...)
 	assert.Equal(t, 1.0, accuracy)
@@ -309,7 +303,6 @@ func Test_Flowers(t *testing.T) {
 		ParticleCount: 8,
 	}
 	s := NewMultiSwarm(config, DefaultTrainingConfig)
-	defer s.Close()
 	s.Train(trainData)
 
 	accuracy := s.ClassificationAccuracy(testData.Examples...)

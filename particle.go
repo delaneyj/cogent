@@ -6,18 +6,14 @@ import (
 	math "math"
 	"math/rand"
 	"sync"
-
-	"github.com/dgraph-io/badger"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
 )
 
 type particle struct {
-	id      string
-	fn      lossFn
-	data    *NeuralNetworkData
-	db      *badger.DB
-	swarmID []byte
+	id         int
+	fn         lossFn
+	data       *NeuralNetworkData
+	blackboard *blackboard
+	swarmID    int
 }
 
 //NewNeuralNetworkConfiguration x
@@ -30,26 +26,14 @@ func NewNeuralNetworkConfiguration(inputCount int, lc ...*LayerConfig) *NeuralNe
 	return &nnc
 }
 
-func newParticle(swarmID []byte, db *badger.DB) *particle {
+func newParticle(swarmID, particleID int, blackboard *blackboard) *particle {
 	var nnConfig NeuralNetworkConfiguration
 	var trainingConfig TrainingConfiguration
-	checkErr(db.View(func(txn *badger.Txn) error {
-		i, err := txn.Get(neuralNetworkConfigPath)
-		checkErr(err)
-		b, err := i.Value()
-		checkErr(err)
-		err = nnConfig.Unmarshal(b)
-		checkErr(err)
 
-		i, err = txn.Get(trainingConfigPath)
-		checkErr(err)
-		b, err = i.Value()
-		checkErr(err)
-		err = trainingConfig.Unmarshal(b)
-		checkErr(err)
-
-		return nil
-	}))
+	blackboard.mutex.RLock()
+	nnConfig = blackboard.nnConfig
+	trainingConfig = blackboard.trainingConfig
+	blackboard.mutex.RUnlock()
 
 	fn := lossFns[nnConfig.Loss]
 	if fn == nil {
@@ -81,69 +65,27 @@ func newParticle(swarmID []byte, db *badger.DB) *particle {
 	}
 
 	return &particle{
-		id:      uuid.New().String(),
-		fn:      fn,
-		data:    &data,
-		db:      db,
-		swarmID: swarmID,
+		swarmID:    swarmID,
+		id:         particleID,
+		fn:         fn,
+		data:       &data,
+		blackboard: blackboard,
 	}
 }
 
 func (p *particle) train(wg *sync.WaitGroup) {
-	var trainingData TrainingData
-	var bestSwarm, bestGlobal Position
-	var config TrainingConfiguration
 
 	maxIterations := int(math.MaxInt64)
 	for iteration := 0; iteration < maxIterations; iteration++ {
-		checkErr(p.db.View(func(txn *badger.Txn) error {
-			var x *badger.Item
+		p.blackboard.mutex.RLock()
+		trainingConfig := p.blackboard.trainingConfig
+		bestGlobal := p.blackboard.best[globalKey]
+		bestSwarmKey := fmt.Sprintf(swarmKeyFormat, p.swarmID)
+		bestSwarm := p.blackboard.best[bestSwarmKey]
+		p.blackboard.mutex.RUnlock()
 
-			x, err := txn.Get(trainingConfigPath)
-			if err != nil {
-				return errors.Wrap(err, "can't get training config")
-			}
-			b, _ := x.Value()
-			err = config.Unmarshal(b)
-			if err != nil {
-				return errors.Wrap(err, "can't unmarshal training config")
-			}
-
-			x, err = txn.Get(globalBestPath)
-			if err != nil {
-				return errors.Wrap(err, "can't get global best")
-			}
-			b, _ = x.Value()
-			err = bestGlobal.Unmarshal(b)
-			if err != nil {
-				return errors.Wrap(err, "can't unmarshal global best")
-			}
-
-			x, err = txn.Get(swarmBestPath(p.swarmID))
-			if err != nil {
-				return errors.Wrap(err, "can't get swarm best")
-			}
-			b, _ = x.Value()
-			err = bestSwarm.Unmarshal(b)
-			if err != nil {
-				return errors.Wrap(err, "can't unmarshal swarm best")
-			}
-
-			x, err = txn.Get(trainingDataPath)
-			if err != nil {
-				return errors.Wrap(err, "can't get training data")
-			}
-			b, _ = x.Value()
-			err = trainingData.Unmarshal(b)
-			if err != nil {
-				return errors.Wrap(err, "can't unmarshal training data")
-			}
-
-			return nil
-		}))
-
-		maxIterations = int(config.MaxIterations)
-		if bestGlobal.Loss <= config.TargetAccuracy {
+		maxIterations = int(trainingConfig.MaxIterations)
+		if bestGlobal.Loss <= trainingConfig.TargetAccuracy {
 			log.Printf("early stop at %d iterations", iteration)
 			break
 		}
@@ -153,24 +95,24 @@ func (p *particle) train(wg *sync.WaitGroup) {
 		for _, l := range p.data.Layers {
 			for i, currentLocalWeight := range l.WeightsAndBiases {
 				bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
-				bestSwarmPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
+				bestSwarmPosition := bestSwarm.WeightsAndBiases[flatArrayIndex]
 				bestLocalPosition := p.data.Best.WeightsAndBiases[flatArrayIndex]
 
 				currentLocalVelocity := l.Velocities[i]
 
-				oldVelocityFactor := config.InertiaWeight * currentLocalVelocity
+				oldVelocityFactor := trainingConfig.InertiaWeight * currentLocalVelocity
 
 				localRandomness := rand.Float64()
 				bestLocationDelta := bestLocalPosition - currentLocalWeight
-				localPositionFactor := config.CognitiveWeight * localRandomness * bestLocationDelta
+				localPositionFactor := trainingConfig.CognitiveWeight * localRandomness * bestLocationDelta
 
 				swarmRandomness := rand.Float64()
 				bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
-				swarmPositionFactor := config.SocialWeight * swarmRandomness * bestSwarmlDelta
+				swarmPositionFactor := trainingConfig.SocialWeight * swarmRandomness * bestSwarmlDelta
 
 				globalRandomness := rand.Float64()
 				bestGlobalDelta := bestGlobalPosition - currentLocalWeight
-				globalPositionFactor := config.GlobalWeight * globalRandomness * bestGlobalDelta
+				globalPositionFactor := trainingConfig.GlobalWeight * globalRandomness * bestGlobalDelta
 
 				revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
 				l.Velocities[i] = revisedVelocity
@@ -184,110 +126,65 @@ func (p *particle) train(wg *sync.WaitGroup) {
 			for i, w := range l.WeightsAndBiases {
 				v := l.Velocities[i]
 				revisedPosition := w + v
-				wr := config.WeightRange
-				clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
-				decayed := clamped * (1 + config.WeightDecayRate)       // decay (large weights tend to overfit)
+				wr := trainingConfig.WeightRange
+				clamped := math.Max(-wr, math.Min(wr, revisedPosition))   // restriction
+				decayed := clamped * (1 + trainingConfig.WeightDecayRate) // decay (large weights tend to overfit)
 
 				l.WeightsAndBiases[i] = decayed
 				flatArrayIndex++
 			}
 		}
 
-		p.checkAndSetLoss(p.db, trainingData.Examples)
+		p.checkAndSetLoss()
 
 		deathChance := rand.Float64()
-		if deathChance < config.ProbablityOfDeath {
-			p.data.reset(config.WeightRange)
-			p.checkAndSetLoss(p.db, trainingData.Examples)
+		if deathChance < trainingConfig.ProbablityOfDeath {
+			p.data.reset(trainingConfig.WeightRange)
+			p.checkAndSetLoss()
 		}
 	}
 
 	wg.Done()
 }
 
-func (p *particle) checkAndSetLoss(db *badger.DB, data []*Data) float64 {
-	loss := p.calculateMeanLoss(data)
+func (p *particle) checkAndSetLoss() float64 {
+	loss := p.calculateMeanLoss()
 
 	p.data.CurrentLoss = loss
 	if loss < p.data.Best.Loss {
-		bestPositions := p.data.weights()
-
-		p.data.Best.Loss = loss
-		p.data.Best.WeightsAndBiases = bestPositions
-
-		err := badger.ErrConflict
-
-		globalFound := false
-		var from, to float64
-		for err == badger.ErrConflict {
-			err = db.Update(func(txn *badger.Txn) error {
-				var swarmBest Position
-				swarmBestPath := []byte(fmt.Sprintf(swarmBestFormat, p.swarmID))
-				i, err := txn.Get(swarmBestPath)
-				if err != nil {
-					return errors.Wrap(err, "can't get swarm best")
-				}
-				x, err := i.Value()
-				if err != nil {
-					return errors.Wrap(err, "can't get value swarm best")
-				}
-				err = swarmBest.Unmarshal(x)
-				if err != nil {
-					return errors.Wrap(err, "can't unmarshal swarm best")
-				}
-
-				if loss < swarmBest.Loss {
-					updatedBest := Position{
-						Loss:             loss,
-						WeightsAndBiases: bestPositions,
-					}
-					updatedBestBytes, err := updatedBest.Marshal()
-					if err != nil {
-						return errors.Wrap(err, "can't marshal new best")
-					}
-
-					err = txn.Set(swarmBestPath, updatedBestBytes)
-					if err != nil {
-						return errors.Wrap(err, "can't set swarm best")
-					}
-
-					var globalBest Position
-					i, err := txn.Get(globalBestPath)
-					if err != nil {
-						return errors.Wrap(err, "can't get global best")
-					}
-					x, err := i.Value()
-					if err != nil {
-						return errors.Wrap(err, "can't get value global best")
-					}
-					err = globalBest.Unmarshal(x)
-					if err != nil {
-						return errors.Wrap(err, "can't unmarshal global best")
-					}
-
-					if loss < globalBest.Loss {
-						err := txn.Set(globalBestPath, updatedBestBytes)
-						if err != nil {
-							return errors.Wrap(err, "can't set global best")
-						}
-
-						globalFound = true
-						from = globalBest.Loss
-						to = loss
-					}
-				}
-				return nil
-			})
+		updatedBest := Position{
+			Loss:             loss,
+			WeightsAndBiases: p.data.weights(),
 		}
 
-		if globalFound {
-			log.Printf("New global best found %f->%f from %s", from, to, p.id)
+		p.data.Best = &updatedBest
+
+		p.blackboard.mutex.Lock()
+		defer p.blackboard.mutex.Unlock()
+
+		swarmKey := fmt.Sprintf(swarmKeyFormat, p.swarmID)
+		swarmBest := p.blackboard.best[swarmKey]
+
+		if loss < swarmBest.Loss {
+			p.blackboard.best[swarmKey] = updatedBest
+			globalBest := p.blackboard.best[globalKey]
+
+			globalLoss := globalBest.Loss
+			if loss < globalLoss {
+				p.blackboard.best[globalKey] = updatedBest
+
+				log.Printf("<%d:%d> from %f->%f", p.swarmID, p.id, globalLoss, loss)
+			}
 		}
 	}
 	return loss
 }
 
-func (p *particle) calculateMeanLoss(data []*Data) float64 {
+func (p *particle) calculateMeanLoss() float64 {
+	p.blackboard.mutex.RLock()
+	data := p.blackboard.trainingData.Examples
+	p.blackboard.mutex.RUnlock()
+
 	sum := 0.0
 	for _, d := range data {
 		actualOuputs := p.data.activate(d.Inputs...)

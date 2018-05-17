@@ -3,134 +3,94 @@ package cogent
 import (
 	"fmt"
 	"math"
-	"os"
 	"sync"
+)
 
-	"github.com/dgraph-io/badger"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
+const (
+	globalKey      = "global"
+	swarmKeyFormat = "swarm_%d"
 )
 
 //MultiSwarm x
 type MultiSwarm struct {
-	folderName    string
 	particleCount int
-	db            *badger.DB
+	blackboard    *blackboard
 	swarms        []*swarm
 }
 
 type swarm struct {
-	id        []byte
+	id        int
 	particles []*particle
+}
+
+type blackboard struct {
+	mutex          *sync.RWMutex
+	best           map[string]Position
+	nnConfig       NeuralNetworkConfiguration
+	trainingConfig TrainingConfiguration
+	trainingData   TrainingData
 }
 
 //NewMultiSwarm x
 func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfiguration) *MultiSwarm {
-	id := uuid.New().String()
-	folderName := fmt.Sprintf("mso-%s", id)
-
-	err := os.RemoveAll(folderName)
-	checkErr(err)
-
-	opts := badger.DefaultOptions
-	opts.Dir = folderName
-	opts.ValueDir = folderName
-	db, err := badger.Open(opts)
-	checkErr(err)
-
 	if config.SwarmCount <= 0 {
 		panic("No swarm count in config")
 	}
 
-	nnConfigBytes, err := config.NeuralNetworkConfiguration.Marshal()
-	trainingConfigBytes, err := trainingConfig.Marshal()
+	if trainingConfig.MaxIterations <= 0 {
+		panic("No iterations in training config")
+	}
 
-	checkErr(db.Update(func(txn *badger.Txn) error {
-		if err := txn.Set(neuralNetworkConfigPath, nnConfigBytes); err != nil {
-			return errors.Wrap(err, "can't set nn config")
-		}
+	bb := &blackboard{
+		mutex:          &sync.RWMutex{},
+		best:           map[string]Position{},
+		nnConfig:       *config.NeuralNetworkConfiguration,
+		trainingConfig: trainingConfig,
+	}
 
-		if err := txn.Set(trainingConfigPath, trainingConfigBytes); err != nil {
-			return errors.Wrap(err, "can't set training config")
-		}
-		return nil
-	}))
+	tmpParticle := newParticle(-1, -1, bb)
+
+	bb.mutex.Lock()
+	bb.best[globalKey] = Position{
+		Loss:             math.MaxFloat64,
+		WeightsAndBiases: tmpParticle.data.weights(),
+	}
+	bb.mutex.Unlock()
 
 	ms := MultiSwarm{
-		folderName:    folderName,
-		db:            db,
 		swarms:        make([]*swarm, config.SwarmCount),
 		particleCount: int(config.SwarmCount * config.ParticleCount),
+		blackboard:    bb,
 	}
-	for i := range ms.swarms {
-		uuid := uuid.New()
-		swarmID, err := uuid.MarshalBinary()
-		checkErr(err)
-
+	for swarmID := range ms.swarms {
 		s := &swarm{
 			id:        swarmID,
 			particles: make([]*particle, config.ParticleCount),
 		}
 
-		for i := 0; i < int(config.ParticleCount); i++ {
-			p := newParticle(swarmID, db)
-			s.particles[i] = p
+		for particleID := 0; particleID < int(config.ParticleCount); particleID++ {
+			s.particles[particleID] = newParticle(swarmID, particleID, bb)
 		}
-		ms.swarms[i] = s
+		ms.swarms[swarmID] = s
+
+		tmpParticle.data.reset(trainingConfig.WeightRange)
+		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
+		bb.mutex.Lock()
+		bb.best[swarmKey] = Position{
+			Loss:             math.MaxFloat64,
+			WeightsAndBiases: tmpParticle.data.weights(),
+		}
+		bb.mutex.Unlock()
 	}
 
-	p := newParticle([]byte{}, db)
-	best := Position{
-		Loss:             math.MaxFloat64,
-		WeightsAndBiases: p.data.weights(),
-	}
-	b, err := best.Marshal()
-	checkErr(err)
-
-	checkErr(db.Update(func(txn *badger.Txn) error {
-		if err := txn.Set(globalBestPath, b); err != nil {
-			return errors.Wrap(err, "can't set global best")
-		}
-
-		for _, s := range ms.swarms {
-			p.data.reset(trainingConfig.WeightRange)
-			copy(best.WeightsAndBiases, p.data.weights())
-			b, err = best.Marshal()
-
-			sp := swarmBestPath(s.id)
-			if err := txn.Set(sp, b); err != nil {
-				return errors.Wrap(err, "can't set training config")
-			}
-		}
-
-		return nil
-	}))
 	return &ms
-}
-
-func swarmBestPath(swarmID []byte) []byte {
-	return []byte(fmt.Sprintf(swarmBestFormat, swarmID))
-}
-
-//Close x
-func (ms *MultiSwarm) Close() {
-	checkErr(ms.db.Close())
-	checkErr(os.RemoveAll(ms.folderName))
 }
 
 //Train x
 func (ms *MultiSwarm) Train(training *TrainingData) {
-	{
-		b, err := training.Marshal()
-		checkErr(err)
-		checkErr(ms.db.Update(func(txn *badger.Txn) error {
-			err := txn.Set(trainingDataPath, b)
-			if err != nil {
-				return errors.Wrap(err, "can't set training data")
-			}
-			return nil
-		}))
-	}
+	ms.blackboard.mutex.Lock()
+	ms.blackboard.trainingData = *training
+	ms.blackboard.mutex.Unlock()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(ms.particleCount)
