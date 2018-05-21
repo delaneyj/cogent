@@ -173,7 +173,7 @@ func (p *particle) checkAndSetLoss() float64 {
 			if loss < globalLoss {
 				p.blackboard.best[globalKey] = updatedBest
 
-				log.Printf("<%d:%d> from %f->%f", p.swarmID, p.id, globalLoss, loss)
+				// log.Printf("<%d:%d> from %f->%f", p.swarmID, p.id, globalLoss, loss)
 			}
 		}
 	}

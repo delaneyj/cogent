@@ -28,9 +28,9 @@ func Test_Loss(t *testing.T) {
 		{Squared, args{xE, xA}, 0.26},
 		{Squared, args{yE, yA}, 0.24000000000000005},
 		{Squared, args{zE, zA}, 0.7399999999999999},
-		{Cross, args{xE, xA}, 0.5108256237659907},
-		{Cross, args{yE, yA}, 0.5108256237659907},
-		{Cross, args{zE, zA}, 1.2039728043259361},
+		{Cross, args{xE, xA}, 29.24046029502877},
+		{Cross, args{yE, yA}, 29.52814203414752},
+		{Cross, args{zE, zA}, 31.31990092004245},
 		{Exponential, args{xE, xA}, 1.2969300866657718},
 		{Exponential, args{yE, yA}, 1.2712491503214047},
 		{Exponential, args{zE, zA}, 2.0959355144943643},
@@ -50,9 +50,9 @@ func Test_Loss(t *testing.T) {
 		{Squared, args{jE, jA}, 0.041249999999999995},
 		{Squared, args{kE, kA}, 0.021249999999999998},
 		{Squared, args{lE, lA}, 0.14625000000000002},
-		{Cross, args{jE, jA}, 0.6937325490479931},
-		{Cross, args{kE, kA}, 0.6577722899915205},
-		{Cross, args{lE, lA}, 0.8670193441879794},
+		{Cross, args{jE, jA}, 1.2809331454625148},
+		{Cross, args{kE, kA}, 1.1223281819524886},
+		{Cross, args{lE, lA}, 2.5494440209261597},
 		{Exponential, args{jE, jA}, 1.0421126011324575},
 		{Exponential, args{kE, kA}, 1.0214773890662867},
 		{Exponential, args{lE, lA}, 1.1574855232632035},
@@ -74,6 +74,7 @@ func Test_Loss(t *testing.T) {
 		p := reflect.ValueOf(fn).Pointer()
 		rf := runtime.FuncForPC(p)
 		msg := fmt.Sprintf("%s%v%f", rf.Name(), tt.args.want, tt.want)
-		assert.Equal(t, tt.want, fn(tt.args.want, tt.args.actual), msg)
+		loss := fn(tt.args.want, tt.args.actual)
+		assert.Equal(t, tt.want, loss, msg)
 	}
 }

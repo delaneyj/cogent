@@ -2,7 +2,6 @@ package cogent
 
 import (
 	"log"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -10,8 +9,6 @@ import (
 )
 
 func basicMathConfig() MultiSwarmConfiguration {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	deep := 1
 
 	lc := &LayerConfig{
@@ -46,8 +43,6 @@ func basicMathConfig() MultiSwarmConfiguration {
 func Test_XOR(t *testing.T) {
 	t.Parallel()
 	start := time.Now()
-
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -78,7 +73,6 @@ func Test_XOR(t *testing.T) {
 
 func Test_AND(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -108,7 +102,6 @@ func Test_AND(t *testing.T) {
 
 func Test_NOT(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -138,7 +131,6 @@ func Test_NOT(t *testing.T) {
 
 func Test_OR(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -168,7 +160,6 @@ func Test_OR(t *testing.T) {
 
 func Test_NAND(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -197,7 +188,6 @@ func Test_NAND(t *testing.T) {
 
 func Test_NOR(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
@@ -227,7 +217,6 @@ func Test_NOR(t *testing.T) {
 
 func Test_XNOR(t *testing.T) {
 	t.Parallel()
-	rand.Seed(1)
 	trainData := &TrainingData{
 		Examples: []*Data{
 			{
