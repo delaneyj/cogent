@@ -67,6 +67,24 @@ func Test_OneHotEncoding(t *testing.T) {
 	}
 }
 
+func Test_StringArrayEncoding(t *testing.T) {
+	test := []string{"foo,baz", "bar,foo", "baz,foo", "foo,foo"}
+	sae := stringArrayEncoding{}
+	sae.Learn(test...)
+
+	for i, tt := range [][]float64{
+		[]float64{1, 1, 0},
+		[]float64{1, 0, 1},
+		[]float64{1, 1, 0},
+		[]float64{2, 0, 0},
+	} {
+		x := test[i]
+		e, err := sae.Encode(x)
+		assert.Nil(t, err)
+		assert.Equal(t, tt, e, x)
+	}
+}
+
 func Test_Normalization(t *testing.T) {
 	test := []string{"60000", "24000", "30000", "30000", "18000", "56000"}
 

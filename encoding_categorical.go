@@ -133,6 +133,38 @@ func (b *binaryEncoding) Encode(category string) ([]float64, error) {
 	return binary, nil
 }
 
+type stringArrayEncoding struct {
+	ohe oneHotEncoding
+}
+
+func (bsa *stringArrayEncoding) Learn(arr ...string) error {
+	for _, c := range arr {
+		for _, s := range strings.Split(c, ",") {
+			bsa.ohe.Learn(s)
+		}
+	}
+	return nil
+}
+
+func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
+	var response []float64
+	for _, s := range strings.Split(arr, ",") {
+		e, err := bsa.ohe.Encode(s)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't encode string array")
+		}
+
+		if response == nil {
+			response = make([]float64, len(e))
+		}
+
+		for i, x := range e {
+			response[i] += x
+		}
+	}
+	return response, nil
+}
+
 type heatMapEncoding struct {
 	oneHot    oneHotEncoding
 	nextValue float64

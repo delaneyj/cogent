@@ -28,6 +28,9 @@ const (
 	//HeatMapEncoding will take categories from lowest to highest priority and make a weight heatmap
 	HeatMapEncoding
 
+	//StringArrrayEncoding converts a single csv into OneHot array
+	StringArrrayEncoding
+
 	//NormalizedEncoding normalized to mean and std deviation
 	NormalizedEncoding
 )
@@ -63,6 +66,8 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 			columnEncodings[i] = &binaryEncoding{}
 		case HeatMapEncoding:
 			columnEncodings[i] = &heatMapEncoding{}
+		case StringArrrayEncoding:
+			columnEncodings[i] = &stringArrayEncoding{}
 		case NormalizedEncoding:
 			columnEncodings[i] = &normalizedEncoding{}
 		default:
