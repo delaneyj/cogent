@@ -8,7 +8,7 @@ import (
 )
 
 //TestSwarm x
-func Test_BinaryEncoding(t *testing.T) {
+func Test_BooleanEncoding(t *testing.T) {
 	tx := []float64{1}
 	fx := []float64{-1}
 	tests := []struct {
@@ -20,6 +20,9 @@ func Test_BinaryEncoding(t *testing.T) {
 		{"f", fx},
 		{"t", tx},
 		{"arst", tx},
+		{"0", fx},
+		{"000", fx},
+		{"-", fx},
 		{"", fx},
 	}
 

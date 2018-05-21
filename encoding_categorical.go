@@ -20,10 +20,19 @@ func (b *booleanEncoding) Learn(categories ...string) error {
 }
 
 func (b *booleanEncoding) Encode(category string) ([]float64, error) {
-	fixed := strings.ToLower(strings.TrimSpace(category))
+	falseArray := []float64{-1}
+	lower := strings.ToLower(category)
+	if lower == "false" || lower == "f" {
+		return falseArray, nil
+	}
 
-	if len(fixed) == 0 || fixed[0] == 'f' {
-		return []float64{-1}, nil
+	fixed := strings.TrimSpace(lower)
+	if len(fixed) == 0 {
+		return falseArray, nil
+	}
+
+	if strings.ContainsAny(fixed[0:1], "0_- ") {
+		return falseArray, nil
 	}
 
 	return []float64{1}, nil
