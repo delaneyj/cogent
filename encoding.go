@@ -1,148 +1,103 @@
 package cogent
 
 import (
-	"log"
-	"math"
-	"strconv"
+	"fmt"
+
+	"github.com/pkg/errors"
 )
 
-//Encoding to convert to float64
-type Encoding int
+//EncodingMode determines what style of encoding to use
+type EncodingMode int
 
 const (
-	//BinaryBoolean converts to -1,1
-	BinaryBoolean Encoding = iota
+	//BooleanEncoding returns either -1 to 1
+	BooleanEncoding EncodingMode = iota
 
-	//BinaryString converts to -1,1
-	BinaryString
+	//OrdinalEncoding outputs array from first to last seen from 0-1
+	OrdinalEncoding
 
-	//Normalize confines to Mean 0 +- Standard Deviation
-	Normalize
+	//OneHotEncoding one column per category, with a 1 or 0 in each cell for if the row contained that column’s category
+	OneHotEncoding
 
-	//ClassifyString converts to one hot encoding
-	ClassifyString
+	//BinaryEncoding first the categories are encoded as ordinal.
+	// Those integers are converted into binary code.
+	//The digits from that binary string are split into separate columns.
+	//This encodes the data in fewer dimensions that one-hot, but with some distortion of the distances.
+	BinaryEncoding
+
+	//HeatMapEncoding will take categories from lowest to highest priority and make a weight heatmap
+	HeatMapEncoding
+
+	//NormalizedEncoding normalized to mean and std deviation
+	NormalizedEncoding
 )
 
-//BinaryEncoding x
-func BinaryEncoding(value bool) []float64 {
-	if value {
-		return []float64{1}
-	}
-	return []float64{-1}
+type valueEncoding interface {
+	Learn(categories ...string) error
+	Encode(category string) ([]float64, error)
 }
 
-//BinaryStringEncoding x
-func BinaryStringEncoding(value, trueValue string) []float64 {
-	return BinaryEncoding(value == trueValue)
-}
-
-//ClassificationEncoding x
-func ClassificationEncoding(values []string) [][]float64 {
-	set := map[string]int{}
-
-	i := 0
-	for _, s := range values {
-		_, ok := set[s]
-		if !ok {
-			set[s] = i
-			i++
-		}
+//TableEncoding converts strings from usually an excel file to data ready for neural network
+func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, error) {
+	rowCount := len(table)
+	if rowCount == 0 {
+		return nil, errors.New("no rows in table")
 	}
 
-	setLength := len(set)
-	results := make([][]float64, 0, len(values))
-	for _, value := range values {
-		result := make([]float64, setLength)
-		setIndex := set[value]
-		result[setLength-setIndex-1] = 1
-		results = append(results, result)
+	columnCount := len(table[0])
+	if len(table[0]) == 0 {
+		return nil, errors.New("no columns in table")
 	}
 
-	return results
-}
-
-//NormalizeEncoding x
-func NormalizeEncoding(raw []float64) []float64 {
-	count := len(raw)
-	floatCount := float64(count)
-
-	mean := 0.0
-	for _, x := range raw {
-		mean += x
-	}
-	mean /= floatCount
-
-	standardDeviation := 0.0
-	for _, x := range raw {
-		diff := x - mean
-		standardDeviation += diff * diff
-	}
-	standardDeviation /= floatCount
-	standardDeviation = math.Sqrt(standardDeviation)
-
-	results := make([]float64, count)
-	for i, x := range raw {
-		results[i] = (x - mean) / standardDeviation
-	}
-	return results
-}
-
-//TableEncoding x
-func TableEncoding(encodings []Encoding, rows ...[]string) [][]float64 {
-	results := make([][]float64, len(rows))
-
-	columns := make([][][]float64, len(encodings))
+	//Create encoding instance for each column
+	columnEncodings := make([]valueEncoding, columnCount)
 	for i, encoding := range encodings {
-		column := make([][]float64, len(rows))
-
-		rawColumn := make([]string, len(rows))
-		for j := range rows {
-			// rawColumn[j] = rows[i]
-			rawColumn[j] = rows[j][i]
-		}
-
 		switch encoding {
-		case BinaryBoolean:
-			for k, s := range rawColumn {
-				b, _ := strconv.ParseBool(s)
-				column[k] = BinaryEncoding(b)
-			}
-		case BinaryString:
-			for k, s := range rawColumn {
-				column[k] = BinaryStringEncoding(s, rawColumn[0])
-			}
-		case Normalize:
-			floats := make([]float64, len(rawColumn))
-			for i, s := range rawColumn {
-				f, _ := strconv.ParseFloat(s, 64)
-				floats[i] = f
-			}
-			normalized := NormalizeEncoding(floats)
-			for i, x := range normalized {
-				column[i] = []float64{x}
-			}
-		case ClassifyString:
-			column = ClassificationEncoding(rawColumn)
+		case BooleanEncoding:
+			columnEncodings[i] = &booleanEncoding{}
+		case OrdinalEncoding:
+			columnEncodings[i] = &ordinalEncoding{}
+		case OneHotEncoding:
+			columnEncodings[i] = &oneHotEncoding{}
+		case BinaryEncoding:
+			columnEncodings[i] = &binaryEncoding{}
+		case HeatMapEncoding:
+			columnEncodings[i] = &heatMapEncoding{}
+		case NormalizedEncoding:
+			columnEncodings[i] = &normalizedEncoding{}
 		default:
-			log.Fatal(encoding)
+			msgFormat := "can't find valid encoding '%s' for column %d"
+			msg := fmt.Sprintf(msgFormat, encoding, i)
+			return nil, errors.New(msg)
 		}
-
-		columns[i] = column
 	}
 
-	columnsWidth := 0
-	for _, c := range columns {
-		columnsWidth += len(c[0])
-	}
-
-	for i := range rows {
-		result := make([]float64, 0, columnsWidth)
-
-		for _, c := range columns {
-			result = append(result, c[i]...)
+	//Learn from all columns
+	for _, row := range table {
+		for c, col := range row {
+			ce := columnEncodings[c]
+			err := ce.Learn(col)
+			if err != nil {
+				return nil, errors.Wrap(err, "can't learn from column")
+			}
 		}
-		results[i] = result
 	}
 
-	return results
+	//Actually encode
+	encodedRows := make([][]float64, rowCount)
+	for r, row := range table {
+		encodedRow := []float64{}
+		for c, col := range row {
+			ce := columnEncodings[c]
+
+			encoded, err := ce.Encode(col)
+			if err != nil {
+				return nil, errors.Wrap(err, "can't encode column")
+			}
+
+			encodedRow = append(encodedRow, encoded...)
+		}
+		encodedRows[r] = encodedRow
+	}
+	return encodedRows, nil
 }
