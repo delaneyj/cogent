@@ -3,6 +3,7 @@ package cogent
 import (
 	"math"
 	"strconv"
+	strings "strings"
 
 	"github.com/pkg/errors"
 )
@@ -15,10 +16,16 @@ type normalizedEncoding struct {
 
 func (n *normalizedEncoding) Learn(valueStrings ...string) error {
 	for _, v := range valueStrings {
-		x, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return errors.Wrap(err, "can't convert to float")
+		var err error
+		x := 0.0
+
+		if trimmed := strings.TrimSpace(v); len(trimmed) > 0 {
+			x, err = strconv.ParseFloat(trimmed, 64)
+			if err != nil {
+				return errors.Wrap(err, "can't convert to float")
+			}
 		}
+
 		n.values = append(n.values, x)
 	}
 
@@ -40,9 +47,14 @@ func (n *normalizedEncoding) Learn(valueStrings ...string) error {
 }
 
 func (n *normalizedEncoding) Encode(valueString string) ([]float64, error) {
-	value, err := strconv.ParseFloat(valueString, 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "can't convert to float '%s'", valueString)
+	var value float64
+	var err error
+
+	if trimmed := strings.TrimSpace(valueString); len(trimmed) > 0 {
+		value, err = strconv.ParseFloat(trimmed, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "can't convert to float '%s'", valueString)
+		}
 	}
 	x := (value - n.mean) / n.standardDeviation
 	return []float64{x}, nil

@@ -119,6 +119,12 @@ func Test_Normalization(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, e, a, x)
 	}
+
+	ne = normalizedEncoding{}
+	ne.Learn("-1", "0", "", "1")
+	zero, err := ne.Encode("")
+	assert.Nil(t, err)
+	assert.Equal(t, []float64{0}, zero)
 }
 
 func Test_Combine(t *testing.T) {
