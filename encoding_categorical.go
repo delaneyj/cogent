@@ -199,22 +199,29 @@ func (hm *heatMapEncoding) Learn(csvArrs ...string) error {
 
 func (hm *heatMapEncoding) Encode(csvArr string) ([]float64, error) {
 	nextValue := 0.5
+	var combined []float64
+
 	for _, s := range strings.Split(csvArr, ",") {
 		arr, err := hm.oneHot.Encode(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't encode heat map")
 		}
 
+		if combined == nil {
+			combined = make([]float64, len(arr))
+		}
+
 		for i, x := range arr {
 			if x == -1 {
-				return arr, nil
+				return nil, errors.Wrap(err, "bad heatmap encoding")
 			}
-			arr[i] *= hm.nextValue
+
+			combined[i] += x * nextValue
 		}
+		nextValue /= 2
 	}
 
-	hm.nextValue /= 2
-	return arr, nil
+	return combined, nil
 }
 
 func (hm *heatMapEncoding) EncodeAll(categories []string, ascendingPriority bool) ([]float64, error) {
