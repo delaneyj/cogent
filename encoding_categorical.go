@@ -151,13 +151,13 @@ func (b *binaryEncoding) Encode(category string) ([]float64, error) {
 }
 
 type stringArrayEncoding struct {
-	ohe oneHotEncoding
+	be binaryEncoding
 }
 
 func (bsa *stringArrayEncoding) Learn(arr ...string) error {
 	for _, c := range arr {
 		for _, s := range strings.Split(c, ",") {
-			bsa.ohe.Learn(s)
+			bsa.be.Learn(s)
 		}
 	}
 	return nil
@@ -166,7 +166,7 @@ func (bsa *stringArrayEncoding) Learn(arr ...string) error {
 func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
 	var response []float64
 	for _, s := range strings.Split(arr, ",") {
-		e, err := bsa.ohe.Encode(s)
+		e, err := bsa.be.Encode(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't encode string array")
 		}
@@ -183,30 +183,36 @@ func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
 }
 
 type heatMapEncoding struct {
-	oneHot    oneHotEncoding
-	nextValue float64
+	oneHot oneHotEncoding
 }
 
-func (hm *heatMapEncoding) Learn(categories ...string) error {
-	if hm.nextValue <= 0 {
-		hm.nextValue = 0.5
-		hm.oneHot = oneHotEncoding{}
-	}
-	return hm.oneHot.Learn(categories...)
-}
-
-func (hm *heatMapEncoding) Encode(category string) ([]float64, error) {
-	arr, err := hm.oneHot.Encode(category)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't encode heat map")
-	}
-
-	for i, x := range arr {
-		if x == -1 {
-			return arr, nil
+func (hm *heatMapEncoding) Learn(csvArrs ...string) error {
+	for _, arr := range csvArrs {
+		parts := strings.Split(arr, ",")
+		err := hm.oneHot.Learn(parts...)
+		if err != nil {
+			return errors.Wrap(err, "can't learn heat map")
 		}
-		arr[i] *= hm.nextValue
 	}
+	return nil
+}
+
+func (hm *heatMapEncoding) Encode(csvArr string) ([]float64, error) {
+	nextValue := 0.5
+	for _, s := range strings.Split(csvArr, ",") {
+		arr, err := hm.oneHot.Encode(s)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't encode heat map")
+		}
+
+		for i, x := range arr {
+			if x == -1 {
+				return arr, nil
+			}
+			arr[i] *= hm.nextValue
+		}
+	}
+
 	hm.nextValue /= 2
 	return arr, nil
 }

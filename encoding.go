@@ -2,6 +2,7 @@ package cogent
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/pkg/errors"
@@ -53,7 +54,7 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 		return nil, errors.New("no columns in table")
 	}
 
-	//Create encoding instance for each column
+	log.Printf("Create encoding instance for all %d columns", columnCount)
 	columnEncodings := make([]valueEncoding, columnCount)
 	for i, encoding := range encodings {
 		switch encoding {
@@ -78,7 +79,7 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 		}
 	}
 
-	//Learn from all columns
+	log.Printf("Learn encodings from %d rows of examples.", rowCount)
 	for _, row := range table {
 		for c, col := range row {
 			ce := columnEncodings[c]
@@ -89,9 +90,10 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 		}
 	}
 
-	//Actually encode
+	log.Print("Start encoding.")
 	encodedRows := make([][]float64, rowCount)
 	for r, row := range table {
+		firstRow := r == 0
 		encodedRow := []float64{}
 		for c, col := range row {
 			ce := columnEncodings[c]
@@ -100,9 +102,14 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 			if err != nil {
 				return nil, errors.Wrap(err, "can't encode column")
 			}
+			encodedLength := len(encoded)
 
-			if len(encoded) <= 0 {
+			if encodedLength <= 0 {
 				return nil, errors.New("empty encoding")
+			}
+
+			if firstRow {
+				log.Printf("Column %d will use %d floats.", c, encodedLength)
 			}
 
 			for _, x := range encoded {
@@ -121,6 +128,9 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 		}
 
 		encodedRows[r] = encodedRow
+		if r == 0 {
+			log.Printf("Each row will have %d floats.", len(encodedRow))
+		}
 	}
 	return encodedRows, nil
 }
