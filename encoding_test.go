@@ -34,16 +34,36 @@ func Test_BooleanEncoding(t *testing.T) {
 	}
 }
 
-func Test_OneOrdinal(t *testing.T) {
-	test := []string{"foo", "bar", "baz", "foo"}
+func Test_Ordinal(t *testing.T) {
+	test := []string{"", "foo", "bar", "baz", "foo"}
 	ohe := ordinalEncoding{}
 	ohe.Learn(test...)
 
 	for i, tt := range [][]float64{
 		[]float64{0},
-		[]float64{0.5},
+		[]float64{0.3333333333333333},
+		[]float64{0.6666666666666666},
 		[]float64{1},
+		[]float64{0.3333333333333333},
+	} {
+		x := test[i]
+		e, err := ohe.Encode(x)
+		assert.Nil(t, err)
+		assert.Equal(t, tt, e, x)
+	}
+}
+
+func Test_Binary(t *testing.T) {
+	test := []string{"", "foo", "bar", "baz", "foo"}
+	ohe := ordinalEncoding{}
+	ohe.Learn(test...)
+
+	for i, tt := range [][]float64{
 		[]float64{0},
+		[]float64{0.3333333333333333},
+		[]float64{0.6666666666666666},
+		[]float64{1},
+		[]float64{0.3333333333333333},
 	} {
 		x := test[i]
 		e, err := ohe.Encode(x)

@@ -2,6 +2,7 @@ package cogent
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/pkg/errors"
 )
@@ -100,8 +101,25 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 				return nil, errors.Wrap(err, "can't encode column")
 			}
 
+			if len(encoded) <= 0 {
+				return nil, errors.New("empty encoding")
+			}
+
+			for _, x := range encoded {
+				if math.IsInf(x, 0) {
+					msg := "%s is encoding as infinity, bad news <%s:%s>"
+					return nil, errors.Wrapf(err, msg, col, c, r)
+				}
+
+				if math.IsNaN(x) {
+					msg := "%s is encoding as NaN, bad news <%s:%s>"
+					return nil, errors.Wrapf(err, msg, col, c, r)
+				}
+			}
+
 			encodedRow = append(encodedRow, encoded...)
 		}
+
 		encodedRows[r] = encodedRow
 	}
 	return encodedRows, nil

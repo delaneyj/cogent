@@ -119,6 +119,14 @@ func (b *binaryEncoding) Learn(categories ...string) error {
 
 func (b *binaryEncoding) Encode(category string) ([]float64, error) {
 	lf := float64(len(b.mapping))
+
+	if lf == 0 {
+		return nil, errors.New("no mappings, did you Learn examples first?")
+	}
+	if lf == 1 {
+		return []float64{0}, nil
+	}
+
 	li := int(math.Ceil(math.Log2(lf)))
 	binary := make([]float64, li)
 

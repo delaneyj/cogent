@@ -56,6 +56,9 @@ func (n *normalizedEncoding) Encode(valueString string) ([]float64, error) {
 			return nil, errors.Wrapf(err, "can't convert to float '%s'", valueString)
 		}
 	}
-	x := (value - n.mean) / n.standardDeviation
+	x := (value - n.mean)
+	if n.standardDeviation != 0 {
+		x /= n.standardDeviation
+	}
 	return []float64{x}, nil
 }
