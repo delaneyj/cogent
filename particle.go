@@ -135,19 +135,19 @@ func (p *particle) train(wg *sync.WaitGroup) {
 			}
 		}
 
-		p.checkAndSetLoss()
+		p.checkAndSetLoss(iteration)
 
 		deathChance := rand.Float64()
 		if deathChance < trainingConfig.ProbablityOfDeath {
 			p.data.reset(trainingConfig.WeightRange)
-			p.checkAndSetLoss()
+			p.checkAndSetLoss(iteration)
 		}
 	}
 
 	wg.Done()
 }
 
-func (p *particle) checkAndSetLoss() float64 {
+func (p *particle) checkAndSetLoss(iteration int) float64 {
 	loss := p.calculateMeanLoss()
 
 	p.data.CurrentLoss = loss
@@ -172,8 +172,7 @@ func (p *particle) checkAndSetLoss() float64 {
 			globalLoss := globalBest.Loss
 			if loss < globalLoss {
 				p.blackboard.best[globalKey] = updatedBest
-
-				// log.Printf("<%d:%d> from %f->%f", p.swarmID, p.id, globalLoss, loss)
+				log.Printf("%d <%d:%d> from %f->%f",iteration, p.swarmID, p.id, globalLoss, loss)
 			}
 		}
 	}

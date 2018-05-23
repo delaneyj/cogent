@@ -20,7 +20,7 @@ func (b *booleanEncoding) Learn(categories ...string) error {
 }
 
 func (b *booleanEncoding) Encode(category string) ([]float64, error) {
-	falseArray := []float64{-1}
+	falseArray := []float64{0}
 	lower := strings.ToLower(category)
 	if lower == "false" || lower == "f" {
 		return falseArray, nil

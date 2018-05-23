@@ -2,6 +2,7 @@ package cogent
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sync"
 )
@@ -82,6 +83,8 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		}
 		bb.mutex.Unlock()
 	}
+
+	log.Printf("using %d weights and biases", len(bb.best[globalKey].WeightsAndBiases))
 
 	return &ms
 }
