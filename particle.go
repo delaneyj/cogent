@@ -152,6 +152,7 @@ func (p *particle) checkAndSetLoss(iteration int) float64 {
 
 	p.data.CurrentLoss = loss
 	if loss < p.data.Best.Loss {
+		log.Printf("Local best <%d:%d:%d> from %f->%f", p.swarmID, p.id, iteration, p.data.Best.Loss, loss)
 		updatedBest := Position{
 			Loss:             loss,
 			WeightsAndBiases: p.data.weights(),
@@ -166,13 +167,17 @@ func (p *particle) checkAndSetLoss(iteration int) float64 {
 		swarmBest := p.blackboard.best[swarmKey]
 
 		if loss < swarmBest.Loss {
+			trainAccuracy := p.data.ClassificationAccuracy(p.blackboard.trainingData.Training)
+			testAccuracy := p.data.ClassificationAccuracy(p.blackboard.trainingData.Test)
+
+			log.Printf("Swarm best <%d:%d:%d> from %f->%f (R%f/T%f)", p.swarmID, p.id, iteration, swarmBest.Loss, loss, trainAccuracy, testAccuracy)
 			p.blackboard.best[swarmKey] = updatedBest
 			globalBest := p.blackboard.best[globalKey]
 
 			globalLoss := globalBest.Loss
 			if loss < globalLoss {
 				p.blackboard.best[globalKey] = updatedBest
-				log.Printf("%d <%d:%d> from %f->%f",iteration, p.swarmID, p.id, globalLoss, loss)
+				log.Printf("Global best <%d:%d:%d> from %f->%f  (R%f/T%f)", p.swarmID, p.id, iteration, globalLoss, loss, trainAccuracy, testAccuracy)
 			}
 		}
 	}
@@ -181,7 +186,7 @@ func (p *particle) checkAndSetLoss(iteration int) float64 {
 
 func (p *particle) calculateMeanLoss() float64 {
 	p.blackboard.mutex.RLock()
-	data := p.blackboard.trainingData.Examples
+	data := p.blackboard.trainingData.Training
 	p.blackboard.mutex.RUnlock()
 
 	sum := 0.0

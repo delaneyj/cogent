@@ -7,7 +7,8 @@ message Data {
 }
 
 message TrainingData{
-    repeated Data examples = 1;
+    repeated Data training  = 1;
+    repeated Data test      = 2;
 }
 
 enum Activation {
