@@ -16,7 +16,7 @@ var (
 		GlobalWeight:      0.3645,
 		MaxIterations:     700,
 		TargetAccuracy:    0.000001,
-		WeightRange:       10,
+		WeightRange:       100,
 		WeightDecayRate:   0.01,
 		ProbablityOfDeath: 0.005,
 	}

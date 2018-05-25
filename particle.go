@@ -2,6 +2,7 @@ package cogent
 
 import (
 	fmt "fmt"
+	"io/ioutil"
 	"log"
 	math "math"
 	"math/rand"
@@ -178,6 +179,12 @@ func (p *particle) checkAndSetLoss(iteration int) float64 {
 			if loss < globalLoss {
 				p.blackboard.best[globalKey] = updatedBest
 				log.Printf("Global best <%d:%d:%d> from %f->%f  (R%f/T%f)", p.swarmID, p.id, iteration, globalLoss, loss, trainAccuracy, testAccuracy)
+
+				b, err := p.data.Marshal()
+				checkErr(err)
+				filename := fmt.Sprintf("L%0.12f_R%0.12f_T%0.12f.net", loss, trainAccuracy, testAccuracy)
+				err = ioutil.WriteFile(filename, b, 0666)
+				checkErr(err)
 			}
 		}
 	}
