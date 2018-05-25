@@ -43,209 +43,223 @@ func basicMathConfig() MultiSwarmConfiguration {
 func Test_XOR(t *testing.T) {
 	t.Parallel()
 	start := time.Now()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{0, 1},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{0, 1},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{1, 0},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{1, 0},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{0, 1},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 	log.Print("XOR ", time.Since(start))
 }
 
 func Test_AND(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{1, 0},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{0, 1},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{1, 0},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NOT(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{0, 1},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{1, 0},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{0, 1},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_OR(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{1, 0},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{0, 1},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{1, 0},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{1, 0},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{1, 0},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NAND(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				[]float64{0, 0},
-				[]float64{1, 0},
-			},
-			{
-				[]float64{0, 1},
-				[]float64{1, 0},
-			},
-			{
-				[]float64{1, 0},
-				[]float64{1, 0},
-			},
-			{
-				[]float64{1, 1},
-				[]float64{0, 1},
-			},
+	examples := []*Data{
+		{
+			[]float64{0, 0},
+			[]float64{1, 0},
 		},
+		{
+			[]float64{0, 1},
+			[]float64{1, 0},
+		},
+		{
+			[]float64{1, 0},
+			[]float64{1, 0},
+		},
+		{
+			[]float64{1, 1},
+			[]float64{0, 1},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NOR(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{0, 1},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{1, 0},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{0, 1},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_XNOR(t *testing.T) {
 	t.Parallel()
-	trainData := &TrainingData{
-		Examples: []*Data{
-			{
-				Inputs:  []float64{0, 0},
-				Outputs: []float64{1, 0},
-			},
-			{
-				Inputs:  []float64{0, 1},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 0},
-				Outputs: []float64{0, 1},
-			},
-			{
-				Inputs:  []float64{1, 1},
-				Outputs: []float64{1, 0},
-			},
+	examples := []*Data{
+		{
+			Inputs:  []float64{0, 0},
+			Outputs: []float64{1, 0},
 		},
+		{
+			Inputs:  []float64{0, 1},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 0},
+			Outputs: []float64{0, 1},
+		},
+		{
+			Inputs:  []float64{1, 1},
+			Outputs: []float64{1, 0},
+		},
+	}
+	trainData := &TrainingData{
+		Training: examples,
+		Test:     examples,
 	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Examples...)
+	accuracy := s.ClassificationAccuracy(trainData.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_Flowers(t *testing.T) {
-	trainData := &TrainingData{
-		Examples: []*Data{
+	data := &TrainingData{
+		Training: []*Data{
 			{[]float64{6.3, 2.9, 5.6, 1.8}, []float64{1, 0, 0}},
 			{[]float64{6.9, 3.1, 4.9, 1.5}, []float64{0, 1, 0}},
 			{[]float64{4.6, 3.4, 1.4, 0.3}, []float64{0, 0, 1}},
@@ -271,10 +285,7 @@ func Test_Flowers(t *testing.T) {
 			{[]float64{5.5, 2.3, 4, 1.3}, []float64{0, 1, 0}},
 			{[]float64{6.7, 2.5, 5.8, 1.8}, []float64{1, 0, 0}},
 		},
-	}
-
-	testData := &TrainingData{
-		Examples: []*Data{
+		Test: []*Data{
 			{[]float64{4.6, 3.1, 1.5, 0.2}, []float64{0, 0, 1}},
 			{[]float64{7.1, 3, 5.9, 2.1}, []float64{1, 0, 0}},
 			{[]float64{5.1, 3.5, 1.4, 0.2}, []float64{0, 0, 1}},
@@ -319,9 +330,9 @@ func Test_Flowers(t *testing.T) {
 		ParticleCount: 8,
 	}
 	s := NewMultiSwarm(config, DefaultTrainingConfig)
-	s.Train(trainData)
+	s.Train(data)
 
-	accuracy := s.ClassificationAccuracy(testData.Examples...)
+	accuracy := s.ClassificationAccuracy(data.Test...)
 	assert.Equal(t, 1.0, accuracy)
 }
 

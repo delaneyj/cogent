@@ -98,13 +98,19 @@ func itakuraSaitoDistanceLoss(want, actual []float64) float64 {
 		panic("expected and actual need to be same length")
 	}
 
-	sum := 0.0
-	for i, w := range want {
-		a := actual[i]
-		x := (w * w) / (a * a)
-		if y := math.Log(x); !math.IsNaN(y) && !math.IsInf(y, 0) {
-			sum += x - y - 1
+	nonSymmetric := func(wX, aY []float64) float64 {
+		sum := 0.0
+		for i, w := range wX {
+			a := aY[i]
+			x := (w * w) / (a * a)
+			if y := math.Log(x); !math.IsNaN(y) && !math.IsInf(y, 0) {
+				sum += x - y - 1
+			}
 		}
+		return (1 / 2 * math.Pi) + sum
 	}
-	return (1 / 2 * math.Pi) + sum
+
+	a := nonSymmetric(want, actual)
+	b := nonSymmetric(actual, want)
+	return (a + b) / 2
 }

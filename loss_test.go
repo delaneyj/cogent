@@ -43,9 +43,9 @@ func Test_Loss(t *testing.T) {
 		{GeneralizedKullbackLeiblerDivergence, args{xE, xA}, 0.1108256237659907},
 		{GeneralizedKullbackLeiblerDivergence, args{yE, yA}, 0.1108256237659907},
 		{GeneralizedKullbackLeiblerDivergence, args{zE, zA}, 0.5039728043259362},
-		{ItakuraSaitoDistance, args{xE, xA}, 0.7561265302457962},
-		{ItakuraSaitoDistance, args{yE, yA}, 0.7561265302457962},
-		{ItakuraSaitoDistance, args{zE, zA}, 7.703165502459239},
+		{ItakuraSaitoDistance, args{xE, xA}, 0.5688888888888888},
+		{ItakuraSaitoDistance, args{yE, yA}, 0.5688888888888888},
+		{ItakuraSaitoDistance, args{zE, zA}, 4.600555555555555},
 
 		{Squared, args{jE, jA}, 0.041249999999999995},
 		{Squared, args{kE, kA}, 0.021249999999999998},
@@ -65,9 +65,9 @@ func Test_Loss(t *testing.T) {
 		{GeneralizedKullbackLeiblerDivergence, args{jE, jA}, 0.07729857334806145},
 		{GeneralizedKullbackLeiblerDivergence, args{kE, kA}, 0.04133831429158885},
 		{GeneralizedKullbackLeiblerDivergence, args{lE, lA}, 0.2505853684880478},
-		{ItakuraSaitoDistance, args{jE, jA}, 1.0998490412228452},
-		{ItakuraSaitoDistance, args{kE, kA}, 0.7203520750152961},
-		{ItakuraSaitoDistance, args{lE, lA}, 3.1046329856760693},
+		{ItakuraSaitoDistance, args{jE, jA}, 2.1352777777777776},
+		{ItakuraSaitoDistance, args{kE, kA}, 1.0178472222222226},
+		{ItakuraSaitoDistance, args{lE, lA}, 6.704522569444445},
 	}
 	for _, tt := range tests {
 		fn := lossFns[tt.et]
