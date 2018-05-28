@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"runtime"
 	"sync"
 )
 
@@ -15,8 +16,11 @@ const (
 //MultiSwarm x
 type MultiSwarm struct {
 	particleCount int
-	blackboard    *blackboard
-	swarms        []*swarm
+	// blackboard    *blackboard
+	blackboard     *sync.Map
+	swarms         []*swarm
+	trainingConfig TrainingConfiguration
+	dataset        Dataset
 }
 
 type swarm struct {
@@ -24,13 +28,13 @@ type swarm struct {
 	particles []*particle
 }
 
-type blackboard struct {
-	mutex          *sync.RWMutex
-	best           map[string]Position
-	nnConfig       NeuralNetworkConfiguration
-	trainingConfig TrainingConfiguration
-	trainingData   TrainingData
-}
+// type blackboard struct {
+// 	mutex          *keymutex.KeyMutex
+// 	best           map[string]Position
+// 	nnConfig       NeuralNetworkConfiguration
+// 	trainingConfig TrainingConfiguration
+// 	dataset        Dataset
+// }
 
 //NewMultiSwarm x
 func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfiguration) *MultiSwarm {
@@ -42,26 +46,26 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		panic("No iterations in training config")
 	}
 
-	bb := &blackboard{
-		mutex:          &sync.RWMutex{},
-		best:           map[string]Position{},
-		nnConfig:       *config.NeuralNetworkConfiguration,
-		trainingConfig: trainingConfig,
-	}
+	// bb := &blackboard{
+	// 	mutex:          keymutex.New(997),
+	// 	best:           map[string]Position{},
+	// 	nnConfig:       *config.NeuralNetworkConfiguration,
+	// 	trainingConfig: trainingConfig,
+	// }
 
-	tmpParticle := newParticle(-1, -1, bb)
+	bb := &sync.Map{}
+	tmpParticle := newParticle(-1, -1, bb, trainingConfig.WeightRange, config.NeuralNetworkConfiguration)
 
-	bb.mutex.Lock()
-	bb.best[globalKey] = Position{
+	bb.Store(globalKey, Position{
 		Loss:             math.MaxFloat64,
-		WeightsAndBiases: tmpParticle.data.weights(),
-	}
-	bb.mutex.Unlock()
+		WeightsAndBiases: tmpParticle.nn.weights(),
+	})
 
 	ms := MultiSwarm{
-		swarms:        make([]*swarm, config.SwarmCount),
-		particleCount: int(config.SwarmCount * config.ParticleCount),
-		blackboard:    bb,
+		swarms:         make([]*swarm, config.SwarmCount),
+		particleCount:  int(config.SwarmCount * config.ParticleCount),
+		blackboard:     bb,
+		trainingConfig: trainingConfig,
 	}
 	for swarmID := range ms.swarms {
 		s := &swarm{
@@ -70,48 +74,67 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		}
 
 		for particleID := 0; particleID < int(config.ParticleCount); particleID++ {
-			s.particles[particleID] = newParticle(swarmID, particleID, bb)
+			s.particles[particleID] = newParticle(swarmID, particleID, bb, trainingConfig.WeightRange, config.NeuralNetworkConfiguration)
 		}
 		ms.swarms[swarmID] = s
 
-		tmpParticle.data.reset(trainingConfig.WeightRange)
+		tmpParticle.nn.reset(trainingConfig.WeightRange)
 		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
-		bb.mutex.Lock()
-		bb.best[swarmKey] = Position{
+
+		bb.Store(swarmKey, Position{
 			Loss:             math.MaxFloat64,
-			WeightsAndBiases: tmpParticle.data.weights(),
-		}
-		bb.mutex.Unlock()
+			WeightsAndBiases: tmpParticle.nn.weights(),
+		})
 	}
 
-	log.Printf("using %d weights and biases", len(bb.best[globalKey].WeightsAndBiases))
+	res, ok := bb.Load(globalKey)
+	if !ok {
+		runtime.Breakpoint()
+	}
+	wbCount := len(res.(Position).WeightsAndBiases)
+	log.Printf("using %d weights and biases", wbCount)
 
 	return &ms
 }
 
 //Train x
-func (ms *MultiSwarm) Train(training *TrainingData) {
-	ms.blackboard.mutex.Lock()
-	ms.blackboard.trainingData = *training
-	ms.blackboard.mutex.Unlock()
+func (ms *MultiSwarm) Train(dataset Dataset) {
+	ms.dataset = dataset
 
-	wg := &sync.WaitGroup{}
-	wg.Add(ms.particleCount)
-	for _, s := range ms.swarms {
-		for _, p := range s.particles {
-			go p.train(wg)
-		}
+	pti := particleTrainingInfo{
+		Dataset:         dataset,
+		MaxAccuracy:     ms.trainingConfig.TargetAccuracy,
+		InertialWeight:  ms.trainingConfig.InertialWeight,
+		CognitiveWeight: ms.trainingConfig.CognitiveWeight,
+		SocialWeight:    ms.trainingConfig.SocialWeight,
+		GlobalWeight:    ms.trainingConfig.GlobalWeight,
+		WeightRange:     ms.trainingConfig.WeightRange,
+		WeightDecayRate: ms.trainingConfig.WeightDecayRate,
+		DeathRate:       ms.trainingConfig.ProbablityOfDeath,
 	}
-	wg.Wait()
+
+	for iteration := 0; iteration < ms.trainingConfig.MaxIterations; iteration++ {
+		wg := &sync.WaitGroup{}
+		wg.Add(len(ms.swarms))
+
+		for _, s := range ms.swarms {
+			go func() {
+				for _, p := range s.particles {
+					p.train(pti)
+				}
+			}()
+		}
+		wg.Wait()
+	}
 }
 
 //Best x
-func (ms *MultiSwarm) Best() *NeuralNetworkData {
-	var best *NeuralNetworkData
+func (ms *MultiSwarm) Best() *NeuralNetwork {
+	var best *NeuralNetwork
 	for _, s := range ms.swarms {
 		for _, p := range s.particles {
-			if best == nil || p.data.Best.Loss < best.Best.Loss {
-				best = p.data
+			if best == nil || p.nn.Best.Loss < best.Best.Loss {
+				best = p.nn
 			}
 		}
 	}

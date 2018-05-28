@@ -4,7 +4,7 @@ import "math"
 
 type activationFunction func(values []float64) []float64
 
-var activations = map[Activation]activationFunction{
+var activations = map[ActivationMode]activationFunction{
 	Identity: func(values []float64) []float64 {
 		return values
 	},

@@ -14,7 +14,7 @@ func Test_Activations(t *testing.T) {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
 	expected := []struct {
-		at   Activation
+		at   ActivationMode
 		want [][]float64
 	}{
 		{

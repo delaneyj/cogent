@@ -11,22 +11,22 @@ import (
 func basicMathConfig() MultiSwarmConfiguration {
 	deep := 1
 
-	lc := &LayerConfig{
+	lc := LayerConfig{
 		NodeCount:  3,
 		Activation: ReLU,
 	}
 
-	sm := &LayerConfig{
+	sm := LayerConfig{
 		NodeCount:  2,
 		Activation: Softmax,
 	}
 
 	msc := MultiSwarmConfiguration{
 		SwarmCount: 5,
-		NeuralNetworkConfiguration: &NeuralNetworkConfiguration{
+		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
 			Loss:         Cross,
 			InputCount:   2,
-			LayerConfigs: make([]*LayerConfig, deep+1),
+			LayerConfigs: make([]LayerConfig, deep+1),
 		},
 		ParticleCount: 10,
 	}
@@ -43,7 +43,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 func Test_XOR(t *testing.T) {
 	t.Parallel()
 	start := time.Now()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{0, 1},
@@ -61,21 +61,17 @@ func Test_XOR(t *testing.T) {
 			Outputs: []float64{0, 1},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 	log.Print("XOR ", time.Since(start))
 }
 
 func Test_AND(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{0, 1},
@@ -93,20 +89,16 @@ func Test_AND(t *testing.T) {
 			Outputs: []float64{1, 0},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NOT(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{1, 0},
@@ -124,20 +116,16 @@ func Test_NOT(t *testing.T) {
 			Outputs: []float64{0, 1},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_OR(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{0, 1},
@@ -155,20 +143,16 @@ func Test_OR(t *testing.T) {
 			Outputs: []float64{1, 0},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NAND(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			[]float64{0, 0},
 			[]float64{1, 0},
@@ -186,19 +170,15 @@ func Test_NAND(t *testing.T) {
 			[]float64{0, 1},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_NOR(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{1, 0},
@@ -216,20 +196,16 @@ func Test_NOR(t *testing.T) {
 			Outputs: []float64{0, 1},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_XNOR(t *testing.T) {
 	t.Parallel()
-	examples := []*Data{
+	examples := Dataset{
 		{
 			Inputs:  []float64{0, 0},
 			Outputs: []float64{1, 0},
@@ -247,60 +223,52 @@ func Test_XNOR(t *testing.T) {
 			Outputs: []float64{1, 0},
 		},
 	}
-	trainData := &TrainingData{
-		Training: examples,
-		Test:     examples,
-	}
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(trainData)
-	accuracy := s.ClassificationAccuracy(trainData.Test...)
+	s.Train(examples)
+	accuracy := s.ClassificationAccuracy(examples...)
 	assert.Equal(t, 1.0, accuracy)
 }
 
 func Test_Flowers(t *testing.T) {
-	data := &TrainingData{
-		Training: []*Data{
-			{[]float64{6.3, 2.9, 5.6, 1.8}, []float64{1, 0, 0}},
-			{[]float64{6.9, 3.1, 4.9, 1.5}, []float64{0, 1, 0}},
-			{[]float64{4.6, 3.4, 1.4, 0.3}, []float64{0, 0, 1}},
-			{[]float64{7.2, 3.6, 6.1, 2.5}, []float64{1, 0, 0}},
-			{[]float64{4.7, 3.2, 1.3, 0.2}, []float64{0, 0, 1}},
-			{[]float64{4.9, 3, 1.4, 0.2}, []float64{0, 0, 1}},
-			{[]float64{7.6, 3, 6.6, 2.1}, []float64{1, 0, 0}},
-			{[]float64{4.9, 2.4, 3.3, 1}, []float64{0, 1, 0}},
-			{[]float64{5.4, 3.9, 1.7, 0.4}, []float64{0, 0, 1}},
-			{[]float64{4.9, 3.1, 1.5, 0.1}, []float64{0, 0, 1}},
-			{[]float64{5, 3.6, 1.4, 0.2}, []float64{0, 0, 1}},
-			{[]float64{6.4, 3.2, 4.5, 1.5}, []float64{0, 1, 0}},
-			{[]float64{4.4, 2.9, 1.4, 0.2}, []float64{0, 0, 1}},
-			{[]float64{5.8, 2.7, 5.1, 1.9}, []float64{1, 0, 0}},
-			{[]float64{6.3, 3.3, 6, 2.5}, []float64{1, 0, 0}},
-			{[]float64{5.2, 2.7, 3.9, 1.4}, []float64{0, 1, 0}},
-			{[]float64{7, 3.2, 4.7, 1.4}, []float64{0, 1, 0}},
-			{[]float64{6.5, 2.8, 4.6, 1.5}, []float64{0, 1, 0}},
-			{[]float64{4.9, 2.5, 4.5, 1.7}, []float64{1, 0, 0}},
-			{[]float64{5.7, 2.8, 4.5, 1.3}, []float64{0, 1, 0}},
-			{[]float64{5, 3.4, 1.5, 0.2}, []float64{0, 0, 1}},
-			{[]float64{6.5, 3, 5.8, 2.2}, []float64{1, 0, 0}},
-			{[]float64{5.5, 2.3, 4, 1.3}, []float64{0, 1, 0}},
-			{[]float64{6.7, 2.5, 5.8, 1.8}, []float64{1, 0, 0}},
-		},
-		Test: []*Data{
-			{[]float64{4.6, 3.1, 1.5, 0.2}, []float64{0, 0, 1}},
-			{[]float64{7.1, 3, 5.9, 2.1}, []float64{1, 0, 0}},
-			{[]float64{5.1, 3.5, 1.4, 0.2}, []float64{0, 0, 1}},
-			{[]float64{6.3, 3.3, 4.7, 1.6}, []float64{0, 1, 0}},
-			{[]float64{6.6, 2.9, 4.6, 1.3}, []float64{0, 1, 0}},
-			{[]float64{7.3, 2.9, 6.3, 1.8}, []float64{1, 0, 0}},
-		},
+	data := Dataset{
+		{[]float64{6.3, 2.9, 5.6, 1.8}, []float64{1, 0, 0}},
+		{[]float64{6.9, 3.1, 4.9, 1.5}, []float64{0, 1, 0}},
+		{[]float64{4.6, 3.4, 1.4, 0.3}, []float64{0, 0, 1}},
+		{[]float64{7.2, 3.6, 6.1, 2.5}, []float64{1, 0, 0}},
+		{[]float64{4.7, 3.2, 1.3, 0.2}, []float64{0, 0, 1}},
+		{[]float64{4.9, 3, 1.4, 0.2}, []float64{0, 0, 1}},
+		{[]float64{7.6, 3, 6.6, 2.1}, []float64{1, 0, 0}},
+		{[]float64{4.9, 2.4, 3.3, 1}, []float64{0, 1, 0}},
+		{[]float64{5.4, 3.9, 1.7, 0.4}, []float64{0, 0, 1}},
+		{[]float64{4.9, 3.1, 1.5, 0.1}, []float64{0, 0, 1}},
+		{[]float64{5, 3.6, 1.4, 0.2}, []float64{0, 0, 1}},
+		{[]float64{6.4, 3.2, 4.5, 1.5}, []float64{0, 1, 0}},
+		{[]float64{4.4, 2.9, 1.4, 0.2}, []float64{0, 0, 1}},
+		{[]float64{5.8, 2.7, 5.1, 1.9}, []float64{1, 0, 0}},
+		{[]float64{6.3, 3.3, 6, 2.5}, []float64{1, 0, 0}},
+		{[]float64{5.2, 2.7, 3.9, 1.4}, []float64{0, 1, 0}},
+		{[]float64{7, 3.2, 4.7, 1.4}, []float64{0, 1, 0}},
+		{[]float64{6.5, 2.8, 4.6, 1.5}, []float64{0, 1, 0}},
+		{[]float64{4.9, 2.5, 4.5, 1.7}, []float64{1, 0, 0}},
+		{[]float64{5.7, 2.8, 4.5, 1.3}, []float64{0, 1, 0}},
+		{[]float64{5, 3.4, 1.5, 0.2}, []float64{0, 0, 1}},
+		{[]float64{6.5, 3, 5.8, 2.2}, []float64{1, 0, 0}},
+		{[]float64{5.5, 2.3, 4, 1.3}, []float64{0, 1, 0}},
+		{[]float64{6.7, 2.5, 5.8, 1.8}, []float64{1, 0, 0}},
+		{[]float64{4.6, 3.1, 1.5, 0.2}, []float64{0, 0, 1}},
+		{[]float64{7.1, 3, 5.9, 2.1}, []float64{1, 0, 0}},
+		{[]float64{5.1, 3.5, 1.4, 0.2}, []float64{0, 0, 1}},
+		{[]float64{6.3, 3.3, 4.7, 1.6}, []float64{0, 1, 0}},
+		{[]float64{6.6, 2.9, 4.6, 1.3}, []float64{0, 1, 0}},
+		{[]float64{7.3, 2.9, 6.3, 1.8}, []float64{1, 0, 0}},
 	}
 
 	config := MultiSwarmConfiguration{
 		SwarmCount: 5,
-		NeuralNetworkConfiguration: &NeuralNetworkConfiguration{
+		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
 			Loss:       Cross,
 			InputCount: 4,
-			LayerConfigs: []*LayerConfig{
+			LayerConfigs: []LayerConfig{
 				{
 					NodeCount:  10,
 					Activation: ReLU,
@@ -331,8 +299,7 @@ func Test_Flowers(t *testing.T) {
 	}
 	s := NewMultiSwarm(config, DefaultTrainingConfig)
 	s.Train(data)
-
-	accuracy := s.ClassificationAccuracy(data.Test...)
+	accuracy := s.ClassificationAccuracy(data...)
 	assert.Equal(t, 1.0, accuracy)
 }
 

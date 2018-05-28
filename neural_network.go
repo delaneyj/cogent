@@ -10,7 +10,7 @@ import (
 var (
 	//DefaultTrainingConfig x
 	DefaultTrainingConfig = TrainingConfiguration{
-		InertiaWeight:     0.729,
+		InertialWeight:    0.729,
 		CognitiveWeight:   1.49445,
 		SocialWeight:      1.49445,
 		GlobalWeight:      0.3645,
@@ -32,7 +32,7 @@ func (l *LayerData) reset(weightRange float64) {
 	}
 }
 
-func (nn *NeuralNetworkData) weightsAndBiasesCount() int {
+func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 	count := 0
 	for _, l := range nn.Layers {
 		count += len(l.WeightsAndBiases)
@@ -40,7 +40,7 @@ func (nn *NeuralNetworkData) weightsAndBiasesCount() int {
 	return count
 }
 
-func (nn *NeuralNetworkData) weights() []float64 {
+func (nn *NeuralNetwork) weights() []float64 {
 	weights := make([]float64, nn.weightsAndBiasesCount())
 	offset := 0
 	for _, l := range nn.Layers {
@@ -50,7 +50,7 @@ func (nn *NeuralNetworkData) weights() []float64 {
 	return weights
 }
 
-func (nn *NeuralNetworkData) setWeights(weights []float64) {
+func (nn *NeuralNetwork) setWeights(weights []float64) {
 	offset := 0
 	for _, l := range nn.Layers {
 		copy(l.WeightsAndBiases, weights[offset:])
@@ -58,7 +58,7 @@ func (nn *NeuralNetworkData) setWeights(weights []float64) {
 	}
 }
 
-func (nn *NeuralNetworkData) velocities() []float64 {
+func (nn *NeuralNetwork) velocities() []float64 {
 	velocities := make([]float64, nn.weightsAndBiasesCount())
 	offset := 0
 	for _, l := range nn.Layers {
@@ -68,7 +68,7 @@ func (nn *NeuralNetworkData) velocities() []float64 {
 	return velocities
 }
 
-func (nn *NeuralNetworkData) setVelocities(velocities []float64) {
+func (nn *NeuralNetwork) setVelocities(velocities []float64) {
 	offset := 0
 	for _, l := range nn.Layers {
 		copy(l.Velocities, velocities[offset:])
@@ -76,7 +76,7 @@ func (nn *NeuralNetworkData) setVelocities(velocities []float64) {
 	}
 }
 
-func (nn *NeuralNetworkData) reset(weightRange float64) {
+func (nn *NeuralNetwork) reset(weightRange float64) {
 	for _, l := range nn.Layers {
 		l.reset(weightRange)
 	}
@@ -85,7 +85,7 @@ func (nn *NeuralNetworkData) reset(weightRange float64) {
 }
 
 //Activate feeds forward through the network
-func (nn *NeuralNetworkData) Activate(intialInputs ...float64) []float64 {
+func (nn *NeuralNetwork) Activate(intialInputs ...float64) []float64 {
 	inputs := append(intialInputs, 1) // add bias
 	var outputs []float64
 	for _, l := range nn.Layers {
@@ -110,7 +110,7 @@ func (nn *NeuralNetworkData) Activate(intialInputs ...float64) []float64 {
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
-func (nn *NeuralNetworkData) ClassificationAccuracy(testData []*Data) float64 {
+func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data) float64 {
 	correctCount := 0
 	maxIndex := func(s []float64) int {
 		// index of largest value

@@ -21,7 +21,7 @@ func Test_Loss(t *testing.T) {
 		actual []float64
 	}
 	tests := []struct {
-		et   Loss
+		et   LossMode
 		args args
 		want float64
 	}{

@@ -2,7 +2,7 @@ package cogent
 
 import "math"
 
-var lossFns = map[Loss]lossFn{
+var lossFns = map[LossMode]lossFn{
 	Squared:                              squaredLoss,
 	Cross:                                crossLoss,
 	Exponential:                          exponentialLoss,
