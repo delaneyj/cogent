@@ -234,7 +234,7 @@ func Test_Activations(t *testing.T) {
 			assert.NotNil(t, fn, e.at)
 			actual := fn(example)
 			expected := e.want[i]
-			assert.Equal(t, expected, actual, fmt.Sprintf("%s:%02d", e.at, i))
+			assert.Equal(t, expected, actual, fmt.Sprintf("%d:%02d", e.at, i))
 		}
 	}
 }

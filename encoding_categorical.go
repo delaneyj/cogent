@@ -151,13 +151,13 @@ func (b *binaryEncoding) Encode(category string) ([]float64, error) {
 }
 
 type stringArrayEncoding struct {
-	be binaryEncoding
+	ohe oneHotEncoding
 }
 
 func (bsa *stringArrayEncoding) Learn(arr ...string) error {
 	for _, c := range arr {
 		for _, s := range strings.Split(c, ",") {
-			bsa.be.Learn(s)
+			bsa.ohe.Learn(s)
 		}
 	}
 	return nil
@@ -166,7 +166,7 @@ func (bsa *stringArrayEncoding) Learn(arr ...string) error {
 func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
 	var response []float64
 	for _, s := range strings.Split(arr, ",") {
-		e, err := bsa.be.Encode(s)
+		e, err := bsa.ohe.Encode(s)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't encode string array")
 		}

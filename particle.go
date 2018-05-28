@@ -35,7 +35,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 
 	fn := lossFns[nnConfig.Loss]
 	if fn == nil {
-		log.Fatalf("Invalid loss type '%s'", nnConfig.Loss)
+		log.Fatalf("Invalid loss type '%d'", nnConfig.Loss)
 	}
 	nn := NeuralNetwork{
 		Layers:      make([]LayerData, len(nnConfig.LayerConfigs)),
@@ -155,11 +155,11 @@ type testTrainSet struct {
 	train, test Dataset
 }
 
-func kfoldTestTrainSets(dataset Dataset) []testTrainSet {
+func kfoldTestTrainSets(dataset Dataset) []*testTrainSet {
 	k := 10
 	datasetCount := len(dataset)
-	if datasetCount <= k {
-		k = len(dataset) - 1
+	if datasetCount < k {
+		k = datasetCount
 	}
 
 	buckets := make([]Dataset, k)
@@ -167,12 +167,30 @@ func kfoldTestTrainSets(dataset Dataset) []testTrainSet {
 		buckets[i] = Dataset{}
 	}
 
-	for _, d := range dataset {
-		bucketIndex := rand.Int() % k
-		buckets[bucketIndex] = append(buckets[bucketIndex], d)
+	shuffledIndexes := make([]int, datasetCount)
+	for i := range shuffledIndexes {
+		shuffledIndexes[i] = i
+	}
+	for i := datasetCount - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffledIndexes[i], shuffledIndexes[j] = shuffledIndexes[j], shuffledIndexes[i]
 	}
 
-	tt := make([]testTrainSet, k)
+	for i := 0; i < datasetCount; i++ {
+		ri := shuffledIndexes[i]
+		d := dataset[ri]
+		bi := i % k
+		buckets[bi] = append(buckets[bi], d)
+	}
+
+	tt := make([]*testTrainSet, k)
+	for i := range tt {
+		tt[i] = &testTrainSet{
+			train: Dataset{},
+			test:  Dataset{},
+		}
+	}
+
 	for i, b := range buckets {
 		for j, t := range tt {
 			if i == j {
@@ -182,6 +200,7 @@ func kfoldTestTrainSets(dataset Dataset) []testTrainSet {
 			}
 		}
 	}
+
 	return tt
 }
 
@@ -223,23 +242,27 @@ func (p *particle) checkAndSetLoss(dataset Dataset) float64 {
 			if avgLoss < bestGlobal.Loss {
 				p.blackboard.Store(globalKey, updatedBest)
 
+				trainAvg := 0.0
+				testAvg := 0.0
+				count := float64(len(testTrainSet))
 				for _, ttSet := range testTrainSet {
-					trainAccuracy := p.nn.ClassificationAccuracy(ttSet.train)
-					testAccuracy := p.nn.ClassificationAccuracy(ttSet.test)
-
-					trap := trainAccuracy * 100
-					ttap := testAccuracy * 100
-					log.Printf("Global best <%d:%d> from %3.16f->%3.16f  (R%0.16f/T%0.16f)", p.swarmID, p.id, bestGlobal.Loss, avgLoss, trap, ttap)
-
-					filename := fmt.Sprintf("L%0.12f_R%0.24f_T%3.24f.net", avgLoss, trainAccuracy, testAccuracy)
-					f, err := os.Create(filename)
-					checkErr(err)
-					e := gob.NewEncoder(f)
-					err = e.Encode(p.nn)
-					checkErr(err)
-					err = f.Close()
-					checkErr(err)
+					trainAvg += p.nn.ClassificationAccuracy(ttSet.train)
+					testAvg += p.nn.ClassificationAccuracy(ttSet.test)
 				}
+				trainAvg /= count
+				testAvg /= count
+
+				gbMsg := "Global best <%d:%d> from %3.16f->%3.16f  (R%0.16f/T%0.16f)"
+				log.Printf(gbMsg, p.swarmID, p.id, bestGlobal.Loss, avgLoss, trainAvg, testAvg)
+
+				filename := fmt.Sprintf("L%0.12f_R%0.9f_T%3.9f.net", avgLoss, trainAvg, testAvg)
+				f, err := os.Create(filename)
+				checkErr(err)
+				e := gob.NewEncoder(f)
+				err = e.Encode(p.nn)
+				checkErr(err)
+				err = f.Close()
+				checkErr(err)
 			}
 		}
 	}

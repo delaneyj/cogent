@@ -10,7 +10,7 @@ import (
 //TestSwarm x
 func Test_BooleanEncoding(t *testing.T) {
 	tx := []float64{1}
-	fx := []float64{-1}
+	fx := []float64{0}
 	tests := []struct {
 		with     string
 		expected []float64
@@ -91,20 +91,37 @@ func Test_OneHotEncoding(t *testing.T) {
 }
 
 func Test_StringArrayEncoding(t *testing.T) {
-	test := []string{"foo,baz", "bar,foo", "baz,foo", "foo,foo"}
-	sae := stringArrayEncoding{}
-	sae.Learn(test...)
+	test := []struct {
+		input    string
+		expected []float64
+	}{
+		{
+			"foo,baz",
+			[]float64{1, 1, 0},
+		},
+		{
+			"bar,foo",
+			[]float64{1, 0, 1},
+		},
+		{
+			"baz,foo",
+			[]float64{1, 1, 0},
+		},
+		{
+			"foo,foo",
+			[]float64{2, 0, 0},
+		},
+	}
 
-	for i, tt := range [][]float64{
-		[]float64{1, 1, 0},
-		[]float64{1, 0, 1},
-		[]float64{1, 1, 0},
-		[]float64{2, 0, 0},
-	} {
-		x := test[i]
-		e, err := sae.Encode(x)
+	sae := stringArrayEncoding{}
+	for _, t := range test {
+		sae.Learn(t.input)
+	}
+
+	for _, tt := range test {
+		actual, err := sae.Encode(tt.input)
 		assert.Nil(t, err)
-		assert.Equal(t, tt, e, x)
+		assert.Equal(t, tt.expected, actual, tt.input)
 	}
 }
 
@@ -175,7 +192,7 @@ func Test_Combine(t *testing.T) {
 			0, 0,
 		},
 		{
-			-1, 1,
+			0, 1,
 			-0.7760719847236746,
 			0, 1, 0,
 			-0.8017837257372732,
@@ -189,14 +206,14 @@ func Test_Combine(t *testing.T) {
 			1, 0,
 		},
 		{
-			-1, 1,
+			0, 1,
 			-0.39852345161486,
 			1, 0, 0,
 			0.9799578870122228,
 			0, 0,
 		},
 		{
-			-1, 1,
+			0, 1,
 			-1.1536205178324892,
 			0, 1, 0,
 			-1.3363062095621219,

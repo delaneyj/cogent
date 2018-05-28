@@ -15,8 +15,7 @@ const (
 
 //MultiSwarm x
 type MultiSwarm struct {
-	particleCount int
-	// blackboard    *blackboard
+	particleCount  int
 	blackboard     *sync.Map
 	swarms         []*swarm
 	trainingConfig TrainingConfiguration
@@ -27,14 +26,6 @@ type swarm struct {
 	id        int
 	particles []*particle
 }
-
-// type blackboard struct {
-// 	mutex          *keymutex.KeyMutex
-// 	best           map[string]Position
-// 	nnConfig       NeuralNetworkConfiguration
-// 	trainingConfig TrainingConfiguration
-// 	dataset        Dataset
-// }
 
 //NewMultiSwarm x
 func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfiguration) *MultiSwarm {
@@ -118,11 +109,12 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 		wg.Add(len(ms.swarms))
 
 		for _, s := range ms.swarms {
-			go func() {
+			go func(s *swarm) {
 				for _, p := range s.particles {
 					p.train(pti)
 				}
-			}()
+				wg.Done()
+			}(s)
 		}
 		wg.Wait()
 	}
