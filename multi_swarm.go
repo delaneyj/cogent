@@ -94,6 +94,7 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 
 	pti := particleTrainingInfo{
 		Dataset:         dataset,
+		MaxIterations:   ms.trainingConfig.MaxIterations,
 		MaxAccuracy:     ms.trainingConfig.TargetAccuracy,
 		InertialWeight:  ms.trainingConfig.InertialWeight,
 		CognitiveWeight: ms.trainingConfig.CognitiveWeight,
@@ -104,20 +105,14 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 		DeathRate:       ms.trainingConfig.ProbablityOfDeath,
 	}
 
-	for iteration := 0; iteration < ms.trainingConfig.MaxIterations; iteration++ {
-		wg := &sync.WaitGroup{}
-		wg.Add(len(ms.swarms))
-
-		for _, s := range ms.swarms {
-			go func(s *swarm) {
-				for _, p := range s.particles {
-					p.train(pti)
-				}
-				wg.Done()
-			}(s)
+	wg := &sync.WaitGroup{}
+	wg.Add(ms.particleCount)
+	for _, s := range ms.swarms {
+		for _, p := range s.particles {
+			go p.train(pti, wg)
 		}
-		wg.Wait()
 	}
+	wg.Wait()
 }
 
 //Best x

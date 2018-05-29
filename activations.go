@@ -170,7 +170,7 @@ var activations = map[ActivationMode]activationFunction{
 	Softmax: func(values []float64) []float64 {
 		// does all output nodes at once so scale doesn't have to be re-computed each time
 		// determine max output sum
-		var max float64
+		max := -math.MaxFloat64
 		for _, x := range values {
 			if x > max {
 				max = x
