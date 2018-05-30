@@ -86,15 +86,16 @@ type NeuralNetwork struct {
 
 //TrainingConfiguration x
 type TrainingConfiguration struct {
-	InertialWeight    float64
-	CognitiveWeight   float64
-	SocialWeight      float64
-	GlobalWeight      float64
-	MaxIterations     int
-	TargetAccuracy    float64
-	WeightRange       float64
-	WeightDecayRate   float64
-	ProbablityOfDeath float64
+	InertialWeight        float64
+	CognitiveWeight       float64
+	SocialWeight          float64
+	GlobalWeight          float64
+	MaxIterations         int
+	TargetAccuracy        float64
+	WeightRange           float64
+	WeightDecayRate       float64
+	ProbablityOfDeath     float64
+	RidgeRegressionWeight float64
 }
 
 //MultiSwarmConfiguration x

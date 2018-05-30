@@ -10,15 +10,16 @@ import (
 var (
 	//DefaultTrainingConfig x
 	DefaultTrainingConfig = TrainingConfiguration{
-		InertialWeight:    0.729,
-		CognitiveWeight:   1.49445,
-		SocialWeight:      1.49445,
-		GlobalWeight:      0.3645,
-		MaxIterations:     700,
-		TargetAccuracy:    0.000001,
-		WeightRange:       100,
-		WeightDecayRate:   0.01,
-		ProbablityOfDeath: 0.005,
+		InertialWeight:        0.729,
+		CognitiveWeight:       1.49445,
+		SocialWeight:          1.49445,
+		GlobalWeight:          0.3645,
+		MaxIterations:         700,
+		TargetAccuracy:        0.000001,
+		WeightRange:           100,
+		WeightDecayRate:       0.01,
+		ProbablityOfDeath:     0.005,
+		RidgeRegressionWeight: 0.1,
 	}
 )
 

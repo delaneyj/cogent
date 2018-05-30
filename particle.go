@@ -72,16 +72,17 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 }
 
 type particleTrainingInfo struct {
-	Dataset         Dataset
-	MaxIterations   int
-	MaxAccuracy     float64
-	InertialWeight  float64
-	CognitiveWeight float64
-	SocialWeight    float64
-	GlobalWeight    float64
-	WeightRange     float64
-	WeightDecayRate float64
-	DeathRate       float64
+	Dataset               Dataset
+	MaxIterations         int
+	MaxAccuracy           float64
+	InertialWeight        float64
+	CognitiveWeight       float64
+	SocialWeight          float64
+	GlobalWeight          float64
+	WeightRange           float64
+	WeightDecayRate       float64
+	DeathRate             float64
+	RidgeRegressionWeight float64
 }
 
 func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
@@ -149,14 +150,7 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 				}
 			}
 
-			loss := p.checkAndSetLoss(iteration, kfold, ttSet)
-
-			deathChance := rand.Float64()
-			if deathChance < pti.DeathRate {
-				p.nn.reset(pti.WeightRange)
-				loss = p.checkAndSetLoss(iteration, kfold, ttSet)
-			}
-
+			loss := p.checkAndSetLoss(iteration, kfold, pti.RidgeRegressionWeight, ttSet)
 			kfoldLossAvg += loss
 		}
 
@@ -164,7 +158,7 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 		rmse := p.rmse(pti.Dataset)
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
 
-		filename := fmt.Sprintf("T%03.16f_%0.16f_%02d%02d_%04d_L%03.12f.nn", rmse, testAcc, p.swarmID, p.id, iteration, kfoldLossAvg)
+		filename := fmt.Sprintf("%04d_KFX_%0.8f_RMSE%0.8f_TACC%0.16f_.nn", iteration,  kfoldLossAvg,rmse, testAcc)
 		log.Printf(filename)
 
 		if testAcc > bestTestAcc {
@@ -176,6 +170,14 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 			checkErr(err)
 			err = f.Close()
 			checkErr(err)
+		}
+
+		deathChance := rand.Float64()
+		if deathChance < pti.DeathRate {
+			log.Printf("<%d:%d> died!", p.swarmID, p.id)
+			p.nn.reset(pti.WeightRange)
+			index := rand.Intn(len(ttSets))
+			p.checkAndSetLoss(iteration, -1, pti.RidgeRegressionWeight, ttSets[index])
 		}
 	}
 	wg.Done()
@@ -234,8 +236,8 @@ func kfoldTestTrainSets(dataset Dataset) []*testTrainSet {
 	return tt
 }
 
-func (p *particle) checkAndSetLoss(iteration, kfold int, ttSet *testTrainSet) float64 {
-	loss := p.calculateMeanLoss(ttSet.train)
+func (p *particle) checkAndSetLoss(iteration, kfold int, ridgeRegressionWeight float64, ttSet *testTrainSet) float64 {
+	loss := p.calculateMeanLoss(ttSet.train, ridgeRegressionWeight)
 	p.nn.CurrentLoss = loss
 	if loss < p.nn.Best.Loss {
 		blf := "max"
@@ -294,7 +296,7 @@ func (p *particle) rmse(dataset Dataset) float64 {
 	return math.Sqrt(rmse / float64(len(dataset)))
 }
 
-func (p *particle) calculateMeanLoss(dataset Dataset) float64 {
+func (p *particle) calculateMeanLoss(dataset Dataset, ridgeRegressionWeight float64) float64 {
 	sum := 0.0
 	for _, d := range dataset {
 		actualOuputs := p.nn.Activate(d.Inputs...)
@@ -308,6 +310,8 @@ func (p *particle) calculateMeanLoss(dataset Dataset) float64 {
 		l2Regularization += w * w
 	}
 	l2Regularization /= float64(p.nn.weightsAndBiasesCount())
+	l2Regularization *= ridgeRegressionWeight
+	log.Printf("<%02d:%02d> LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
 	return loss + l2Regularization
 }
 

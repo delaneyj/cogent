@@ -93,16 +93,17 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 	ms.dataset = dataset
 
 	pti := particleTrainingInfo{
-		Dataset:         dataset,
-		MaxIterations:   ms.trainingConfig.MaxIterations,
-		MaxAccuracy:     ms.trainingConfig.TargetAccuracy,
-		InertialWeight:  ms.trainingConfig.InertialWeight,
-		CognitiveWeight: ms.trainingConfig.CognitiveWeight,
-		SocialWeight:    ms.trainingConfig.SocialWeight,
-		GlobalWeight:    ms.trainingConfig.GlobalWeight,
-		WeightRange:     ms.trainingConfig.WeightRange,
-		WeightDecayRate: ms.trainingConfig.WeightDecayRate,
-		DeathRate:       ms.trainingConfig.ProbablityOfDeath,
+		Dataset:               dataset,
+		MaxIterations:         ms.trainingConfig.MaxIterations,
+		MaxAccuracy:           ms.trainingConfig.TargetAccuracy,
+		InertialWeight:        ms.trainingConfig.InertialWeight,
+		CognitiveWeight:       ms.trainingConfig.CognitiveWeight,
+		SocialWeight:          ms.trainingConfig.SocialWeight,
+		GlobalWeight:          ms.trainingConfig.GlobalWeight,
+		WeightRange:           ms.trainingConfig.WeightRange,
+		WeightDecayRate:       ms.trainingConfig.WeightDecayRate,
+		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
+		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 	}
 
 	wg := &sync.WaitGroup{}
