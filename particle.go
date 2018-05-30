@@ -85,7 +85,7 @@ type particleTrainingInfo struct {
 }
 
 func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
-	bestKFoldLoss := math.MaxFloat64
+	bestTestAcc := -math.MaxFloat64
 
 	for iteration := 0; iteration < pti.MaxIterations; iteration++ {
 		kfoldLossAvg := 0.0
@@ -162,11 +162,12 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 
 		kfoldLossAvg /= float64(len(ttSets))
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
-		log.Printf("%d <%d:%d>  %0.16f (T%0.16f)", iteration, p.swarmID, p.id, kfoldLossAvg, testAcc)
 
-		if kfoldLossAvg < bestKFoldLoss {
-			bestKFoldLoss = kfoldLossAvg
-			filename := fmt.Sprintf("%d%d%d_L%0.12f_T%3.9f.net", iteration, p.swarmID, p.id, kfoldLossAvg, 100*testAcc)
+		filename := fmt.Sprintf("T%02.9f_%02d%02d_%04d_L%03.12f.net", 100*testAcc, p.swarmID, p.id, iteration, kfoldLossAvg)
+		log.Printf(filename)
+
+		if testAcc > bestTestAcc {
+			bestTestAcc = testAcc
 			f, err := os.Create(filename)
 			checkErr(err)
 			e := gob.NewEncoder(f)
