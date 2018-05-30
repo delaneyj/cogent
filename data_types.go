@@ -41,6 +41,7 @@ type LossMode int
 const (
 	Squared LossMode = iota
 	Cross
+	Hinge
 	Exponential
 	HellingerDistance
 	KullbackLeiblerDivergence

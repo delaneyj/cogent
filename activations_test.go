@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
+	"time"
 
 	"testing"
 
@@ -236,5 +238,80 @@ func Test_Activations(t *testing.T) {
 			expected := e.want[i]
 			assert.Equal(t, expected, actual, fmt.Sprintf("%d:%02d", e.at, i))
 		}
+	}
+}
+
+func Test_ActivationsSpeed(t *testing.T) {
+	log.SetFlags(log.Lshortfile | log.LstdFlags)
+
+	expected := []struct {
+		at   ActivationMode
+		want float64
+	}{
+		{BinaryStep, 29},
+		{Sigmoid, 56},
+		{HyperbolicTangent, 77},
+		{ArcTan, 60},
+		{Softsign, 40},
+		{ISRU, 19},
+		{ReLU, 20},
+		{LeakyReLU, 18},
+		{ELU, 27},
+		{SELU, 13.8},
+		{SoftPlus, 40},
+		{BentIdentity, 35},
+		{Sinusoid, 100},
+		{Sinc, 80},
+		{Gaussian, 55},
+		{Softmax, 107},
+		{Maxout, 45},
+	}
+
+	examples := make([][]float64, 1000000)
+	for i := range examples {
+		examples[i] = make([]float64, rand.Intn(25))
+		for j := range examples[i] {
+			examples[i][j] = rand.Float64()
+		}
+	}
+
+	timeToActivate := func(at ActivationMode) time.Duration {
+		start := time.Now()
+		activate := activations[at]
+		assert.NotNil(t, activate)
+		for _, e := range examples {
+			activate(e)
+		}
+		d := time.Since(start)
+		return d
+	}
+
+	identity := timeToActivate(Identity)
+
+	labels := []string{
+		"BinaryStep",
+		"Sigmoid",
+		"HyperbolicTangent",
+		"ArcTan",
+		"Softsign",
+		"ISRU",
+		"ReLU",
+		"LeakyReLU",
+		"ELU",
+		"SELU",
+		"SoftPlus",
+		"BentIdentity",
+		"Sinusoid",
+		"Sinc",
+		"Gaussian",
+		"Softmax",
+		"Maxout",
+	}
+
+	for i, e := range expected {
+		duration := timeToActivate(e.at)
+		ratio := float64(duration) / float64(identity)
+		maxDelta := e.want * 0.5
+		assert.InDelta(t, e.want, ratio, maxDelta, labels[i])
 	}
 }

@@ -33,7 +33,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 	// var nnConfig NeuralNetworkConfiguration
 	// var trainingConfig TrainingConfiguration
 
-	fn := lossFns[nnConfig.Loss]
+	fn := LossFns[nnConfig.Loss]
 	if fn == nil {
 		log.Fatalf("Invalid loss type '%d'", nnConfig.Loss)
 	}
@@ -161,9 +161,10 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 		}
 
 		kfoldLossAvg /= float64(len(ttSets))
+		rmse := p.rmse(pti.Dataset)
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
 
-		filename := fmt.Sprintf("T%02.9f_%02d%02d_%04d_L%03.12f.net", 100*testAcc, p.swarmID, p.id, iteration, kfoldLossAvg)
+		filename := fmt.Sprintf("T%03.16f_%0.16f_%02d%02d_%04d_L%03.12f.nn", rmse, testAcc, p.swarmID, p.id, iteration, kfoldLossAvg)
 		log.Printf(filename)
 
 		if testAcc > bestTestAcc {
@@ -264,16 +265,33 @@ func (p *particle) checkAndSetLoss(iteration, kfold int, ttSet *testTrainSet) fl
 			if loss < bestGlobal.Loss {
 				p.blackboard.Store(globalKey, updatedBest)
 
-				trainAcc := p.nn.ClassificationAccuracy(ttSet.train)
-				testAcc := p.nn.ClassificationAccuracy(ttSet.test)
+				// trainAcc := p.nn.ClassificationAccuracy(ttSet.train)
+				// testAcc := p.nn.ClassificationAccuracy(ttSet.test)
+
+				trainRMSE := p.rmse(ttSet.train)
+				testRMSE := p.rmse(ttSet.test)
 
 				gbMsg := "<%d/%d> Global best <%d:%d> from %3.16f->%3.16f  (R%0.16f/T%0.16f)"
-				log.Printf(gbMsg, iteration, kfold, p.swarmID, p.id, bestGlobal.Loss, loss, trainAcc, testAcc)
+				log.Printf(gbMsg, iteration, kfold, p.swarmID, p.id, bestGlobal.Loss, loss, trainRMSE, testRMSE)
 			}
 		}
 	}
 
 	return loss
+}
+
+func (p *particle) rmse(dataset Dataset) float64 {
+	rmse := 0.0
+	for _, d := range dataset {
+		expected := d.Outputs
+		actual := p.nn.Activate(d.Inputs...)
+		for j, a := range actual {
+			e := expected[j]
+			diff := a - e
+			rmse += diff * diff
+		}
+	}
+	return math.Sqrt(rmse / float64(len(dataset)))
 }
 
 func (p *particle) calculateMeanLoss(dataset Dataset) float64 {
@@ -284,7 +302,13 @@ func (p *particle) calculateMeanLoss(dataset Dataset) float64 {
 		sum += err
 	}
 	loss := sum / float64(len(dataset))
-	return loss
+
+	l2Regularization := 0.0
+	for _, w := range p.nn.weights() {
+		l2Regularization += w * w
+	}
+	l2Regularization /= float64(p.nn.weightsAndBiasesCount())
+	return loss + l2Regularization
 }
 
 func checkOk(ok bool) {

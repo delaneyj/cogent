@@ -1,9 +1,16 @@
 package cogent
 
-import "math"
+import (
+	"math"
+	"runtime"
+)
 
-var lossFns = map[LossMode]lossFn{
+const epsilon = float64(7.)/3 - float64(4.)/3 - float64(1.)
+
+//LossFns x
+var LossFns = map[LossMode]lossFn{
 	Squared:                              squaredLoss,
+	Hinge:                                hinge,
 	Cross:                                crossLoss,
 	Exponential:                          exponentialLoss,
 	HellingerDistance:                    hellingerDistanceLoss,
@@ -24,13 +31,28 @@ func squaredLoss(want, actual []float64) float64 {
 	return sum
 }
 
-func crossLoss(want, actual []float64) float64 {
-	eps := 1e-7 // to avoid log(0)
+func crossLoss(expected, actual []float64) float64 {
+	sum := 0.0
+	for i, e := range expected {
+		a := actual[i]
+
+		if a == 0 {
+			a = epsilon
+		}
+		sum += -math.Log(a) * e
+		if math.IsInf(sum, 0) || sum < 0 {
+			runtime.Breakpoint()
+		}
+	}
+
+	return sum
+}
+
+func hinge(want, actual []float64) float64 {
 	sum := 0.0
 	for i, w := range want {
 		a := actual[i]
-		x := math.Log((a + eps) / (w + eps))
-		sum += math.Abs(x)
+		sum += math.Max(0, 1-a*w)
 	}
 	return sum
 }
