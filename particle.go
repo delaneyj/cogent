@@ -158,7 +158,7 @@ func (p *particle) train(pti particleTrainingInfo, wg *sync.WaitGroup) {
 		rmse := p.rmse(pti.Dataset)
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
 
-		filename := fmt.Sprintf("%04d_KFX_%0.8f_RMSE%0.8f_TACC%0.16f_.nn", iteration,  kfoldLossAvg,rmse, testAcc)
+		filename := fmt.Sprintf("%04d_KFX_%0.8f_RMSE%0.8f_TACC%0.16f.nn", iteration, kfoldLossAvg, rmse, testAcc)
 		log.Printf(filename)
 
 		if testAcc > bestTestAcc {
