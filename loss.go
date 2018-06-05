@@ -5,7 +5,7 @@ import (
 	"runtime"
 )
 
-const epsilon = float64(7.)/3 - float64(4.)/3 - float64(1.)
+const epsilon = 7.0/3 - 4.0/3 - 1.0
 
 //LossFns x
 var LossFns = map[LossMode]lossFn{
@@ -39,7 +39,11 @@ func crossLoss(expected, actual []float64) float64 {
 		if a == 0 {
 			a = epsilon
 		}
-		sum += -math.Log(a) * e
+
+		if x := -math.Log(a) * e; !math.IsNaN(x) {
+			sum += x
+		}
+
 		if math.IsInf(sum, 0) || sum < 0 {
 			runtime.Breakpoint()
 		}

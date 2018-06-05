@@ -301,6 +301,9 @@ func (p *particle) calculateMeanLoss(dataset Dataset, ridgeRegressionWeight floa
 	for _, d := range dataset {
 		actualOuputs := p.nn.Activate(d.Inputs...)
 		err := p.fn(d.Outputs, actualOuputs)
+		if math.IsNaN(err) {
+			runtime.Breakpoint()
+		}
 		sum += err
 	}
 	loss := sum / float64(len(dataset))

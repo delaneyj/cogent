@@ -12,29 +12,32 @@ import (
 type EncodingMode int
 
 const (
-	//BooleanEncoding returns either -1 to 1
-	BooleanEncoding EncodingMode = iota
+	//BooleanEncodingMode returns either -1 to 1
+	BooleanEncodingMode EncodingMode = iota
 
-	//OrdinalEncoding outputs array from first to last seen from 0-1
-	OrdinalEncoding
+	//OrdinalEncodingMode outputs array from first to last seen from 0-1
+	OrdinalEncodingMode
 
-	//OneHotEncoding one column per category, with a 1 or 0 in each cell for if the row contained that column’s category
-	OneHotEncoding
+	//OneHotEncodingMode one column per category, with a 1 or 0 in each cell for if the row contained that column’s category
+	OneHotEncodingMode
 
-	//BinaryEncoding first the categories are encoded as ordinal.
+	//BinaryEncodingMode first the categories are encoded as ordinal.
 	// Those integers are converted into binary code.
 	//The digits from that binary string are split into separate columns.
 	//This encodes the data in fewer dimensions that one-hot, but with some distortion of the distances.
-	BinaryEncoding
+	BinaryEncodingMode
 
-	//HeatMapEncoding will take categories from lowest to highest priority and make a weight heatmap
-	HeatMapEncoding
+	//HeatMapEncodingMode will take categories from lowest to highest priority and make a weight heatmap
+	HeatMapEncodingMode
 
-	//StringArrayEncoding converts a single csv into OneHot array
-	StringArrayEncoding
+	//StringArrayEncodingMode converts a single csv into OneHot array
+	StringArrayEncodingMode
 
-	//NormalizedEncoding normalized to mean and std deviation
-	NormalizedEncoding
+	//NormalizedEncodingMode normalized to mean and std deviation
+	NormalizedEncodingMode
+
+	//IntRangeEncodingMode x
+	IntRangeEncodingMode
 )
 
 type valueEncoding interface {
@@ -58,20 +61,22 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 	columnEncodings := make([]valueEncoding, columnCount)
 	for i, encoding := range encodings {
 		switch encoding {
-		case BooleanEncoding:
+		case BooleanEncodingMode:
 			columnEncodings[i] = &booleanEncoding{}
-		case OrdinalEncoding:
+		case OrdinalEncodingMode:
 			columnEncodings[i] = &ordinalEncoding{}
-		case OneHotEncoding:
+		case OneHotEncodingMode:
 			columnEncodings[i] = &oneHotEncoding{}
-		case BinaryEncoding:
+		case BinaryEncodingMode:
 			columnEncodings[i] = &binaryEncoding{}
-		case HeatMapEncoding:
+		case HeatMapEncodingMode:
 			columnEncodings[i] = &heatMapEncoding{}
-		case StringArrayEncoding:
+		case StringArrayEncodingMode:
 			columnEncodings[i] = &stringArrayEncoding{}
-		case NormalizedEncoding:
+		case NormalizedEncodingMode:
 			columnEncodings[i] = &normalizedEncoding{}
+		case IntRangeEncodingMode:
+			columnEncodings[i] = &intRangeEncoding{}
 		default:
 			msgFormat := "can't find valid encoding '%s' for column %d"
 			msg := fmt.Sprintf(msgFormat, encoding, i)
