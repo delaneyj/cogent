@@ -50,39 +50,10 @@ const (
 	ItakuraSaitoDistance
 )
 
-//LayerConfig x
-type LayerConfig struct {
-	NodeCount  int
-	Activation ActivationMode
-}
-
-//LayerData x
-type LayerData struct {
-	NodeCount        int
-	WeightsAndBiases []float64
-	Velocities       []float64
-	Activation       ActivationMode
-}
-
 //Position x
 type Position struct {
 	WeightsAndBiases []float64
 	Loss             float64
-}
-
-//NeuralNetworkConfiguration x
-type NeuralNetworkConfiguration struct {
-	Loss         LossMode
-	InputCount   int
-	LayerConfigs []LayerConfig
-}
-
-//NeuralNetwork x
-type NeuralNetwork struct {
-	Loss        LossMode
-	Layers      []LayerData
-	CurrentLoss float64
-	Best        Position
 }
 
 //TrainingConfiguration x

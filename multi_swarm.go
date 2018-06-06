@@ -136,7 +136,10 @@ func (ms *MultiSwarm) Best() *NeuralNetwork {
 }
 
 //ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(shouldSplit bool, testData ...*Data) float64 {
+func (ms *MultiSwarm) ClassificationAccuracy(testData ...*Data) float64 {
+	layers := ms.swarms[0].particles[0].nn.Layers
+	lastLayer := layers[len(layers)-1]
+	shouldSplit := lastLayer.Activation == SplitSoftmax
 	return ms.Best().ClassificationAccuracy(testData, shouldSplit)
 }
 

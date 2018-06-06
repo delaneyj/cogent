@@ -166,12 +166,12 @@ func Test_Normalization(t *testing.T) {
 
 func Test_Combine(t *testing.T) {
 	encodings := []EncodingMode{
-		BooleanEncoding,
-		OrdinalEncoding,
-		NormalizedEncoding,
-		OneHotEncoding,
-		NormalizedEncoding,
-		BinaryEncoding,
+		BooleanEncodingMode,
+		OrdinalEncodingMode,
+		NormalizedEncodingMode,
+		OneHotEncodingMode,
+		NormalizedEncodingMode,
+		BinaryEncodingMode,
 	}
 
 	testTable := [][]string{

@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"runtime"
 	"sync"
+
+	t "gorgonia.org/tensor"
 )
 
 var (
@@ -22,60 +24,106 @@ var (
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
 	}
+	//Float x
+	Float = t.Float64
 )
 
-func (l *LayerData) reset(weightRange float64) {
-	for i := range l.WeightsAndBiases {
-		l.WeightsAndBiases[i] = (2*weightRange)*rand.Float64() - weightRange
+//NeuralNetworkConfiguration x
+type NeuralNetworkConfiguration struct {
+	Loss         LossMode
+	InputCount   int
+	BucketSize   int
+	LayerConfigs []LayerConfig
+}
 
+//NeuralNetwork x
+type NeuralNetwork struct {
+	Loss        LossMode
+	Layers      []LayerData
+	CurrentLoss float64
+	Best        Position
+}
+
+//LayerConfig x
+type LayerConfig struct {
+	NodeCount  int
+	Activation ActivationMode
+}
+
+//LayerData x
+type LayerData struct {
+	NodeCount        int
+	WeightsAndBiases t.Tensor
+	Velocities       t.Tensor
+	Activation       ActivationMode
+}
+
+func (l *LayerData) reset(weightRange float64) {
+	runtime.Breakpoint()
+	data := l.WeightsAndBiases.Data().([]float64)
+	for i := range data {
 		lo := -0.1 * weightRange
 		hi := 0.1 * weightRange
-		l.Velocities[i] = (hi-lo)*rand.Float64() + lo
+		data[i] = (hi-lo)*rand.Float64() + lo
 	}
+	// l.Weights = t.Random(Float)
+	// for i := range l.WeightsAndBiases {
+	// 	l.WeightsAndBiases[i] = (2*weightRange)*rand.Float64() - weightRange
+
+	// 	lo := -0.1 * weightRange
+	// 	hi := 0.1 * weightRange
+	// 	l.Velocities[i] = (hi-lo)*rand.Float64() + lo
+	// }
 }
 
 func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 	count := 0
 	for _, l := range nn.Layers {
-		count += len(l.WeightsAndBiases)
+		runtime.Breakpoint()
+		count += l.WeightsAndBiases.DataSize()
+		// count += len(l.WeightsAndBiases)
 	}
 	return count
 }
 
 func (nn *NeuralNetwork) weights() []float64 {
 	weights := make([]float64, nn.weightsAndBiasesCount())
-	offset := 0
-	for _, l := range nn.Layers {
-		copy(weights[offset:], l.WeightsAndBiases)
-		offset += len(l.WeightsAndBiases)
-	}
+	log.Fatal("oh noes")
+	// offset := 0
+	// for _, l := range nn.Layers {
+	// 	copy(weights[offset:], l.WeightsAndBiases)
+	// 	offset += len(l.WeightsAndBiases)
+	// }
 	return weights
 }
 
 func (nn *NeuralNetwork) setWeights(weights []float64) {
-	offset := 0
-	for _, l := range nn.Layers {
-		copy(l.WeightsAndBiases, weights[offset:])
-		offset += len(l.WeightsAndBiases)
-	}
+	log.Fatal("oh noes")
+	// offset := 0
+	// for _, l := range nn.Layers {
+	// 	copy(l.WeightsAndBiases, weights[offset:])
+	// 	offset += len(l.WeightsAndBiases)
+	// }
 }
 
 func (nn *NeuralNetwork) velocities() []float64 {
 	velocities := make([]float64, nn.weightsAndBiasesCount())
-	offset := 0
-	for _, l := range nn.Layers {
-		copy(velocities[offset:], l.Velocities)
-		offset += len(l.Velocities)
-	}
+	log.Fatal("oh noes")
+	// offset := 0
+	// for _, l := range nn.Layers {
+	// 	copy(velocities[offset:], l.Velocities)
+	// 	offset += len(l.Velocities)
+	// }
 	return velocities
 }
 
 func (nn *NeuralNetwork) setVelocities(velocities []float64) {
-	offset := 0
-	for _, l := range nn.Layers {
-		copy(l.Velocities, velocities[offset:])
-		offset += len(l.Velocities)
-	}
+	log.Fatal("oh noes")
+	// offset := 0
+	// for _, l := range nn.Layers {
+	// copy(l.Velocities, velocities[offset:])
+	// offset += len(l.Velocities)
+	// }
 }
 
 func (nn *NeuralNetwork) reset(weightRange float64) {
@@ -88,26 +136,27 @@ func (nn *NeuralNetwork) reset(weightRange float64) {
 
 //Activate feeds forward through the network
 func (nn *NeuralNetwork) Activate(intialInputs ...float64) []float64 {
-	inputs := append(intialInputs, 1) // add bias
+	// inputs := append(intialInputs, 1) // add bias
 	var outputs []float64
-	for _, l := range nn.Layers {
-		nc := int(l.NodeCount)
-		outputs = make([]float64, nc)
+	log.Fatal("oh noes")
+	// for _, l := range nn.Layers {
+	// 	nc := int(l.NodeCount)
+	// 	outputs = make([]float64, nc)
 
-		delta := len(l.WeightsAndBiases) / nc
-		offset := 0
-		for n := 0; n < nc; n++ {
-			for i, w := range l.WeightsAndBiases[offset : offset+delta] {
-				input := inputs[i]
-				outputs[n] += input * w
-			}
-			offset += delta
-		}
+	// 	delta := len(l.WeightsAndBiases) / nc
+	// 	offset := 0
+	// 	for n := 0; n < nc; n++ {
+	// 		for i, w := range l.WeightsAndBiases[offset : offset+delta] {
+	// 			input := inputs[i]
+	// 			outputs[n] += input * w
+	// 		}
+	// 		offset += delta
+	// 	}
 
-		activationFunc := activations[l.Activation]
-		outputs = activationFunc(outputs)
-		inputs = append(outputs, 1)
-	}
+	// 	activationFunc := activations[l.Activation]
+	// 	outputs = activationFunc(outputs)
+	// 	inputs = append(outputs, 1)
+	// }
 	return outputs
 }
 
@@ -133,7 +182,7 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data, shouldSplit bo
 	mu := &sync.Mutex{}
 
 	for _, d := range testData {
-		go func() {
+		go func(d *Data) {
 			expectedOutput := d.Outputs
 			actualOuputs := nn.Activate(d.Inputs...)
 
@@ -164,7 +213,7 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data, shouldSplit bo
 			}
 
 			wg.Done()
-		}()
+		}(d)
 	}
 
 	wg.Wait()

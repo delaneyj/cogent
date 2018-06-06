@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	t "gorgonia.org/tensor"
 )
 
 type particle struct {
@@ -21,11 +23,12 @@ type particle struct {
 }
 
 //NewNeuralNetworkConfiguration x
-func NewNeuralNetworkConfiguration(inputCount int, lc ...LayerConfig) *NeuralNetworkConfiguration {
+func NewNeuralNetworkConfiguration(inputCount, bucketSize int, lc ...LayerConfig) *NeuralNetworkConfiguration {
 	nnc := NeuralNetworkConfiguration{
 		Loss:         Cross,
 		InputCount:   inputCount,
 		LayerConfigs: lc,
+		BucketSize:   bucketSize,
 	}
 	return &nnc
 }
@@ -44,14 +47,26 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 		Loss:        nnConfig.Loss,
 	}
 
+	Float := t.Float64
 	previousLayerCount := nnConfig.InputCount
 	for i, layerConfig := range nnConfig.LayerConfigs {
-		wbCount := (previousLayerCount + 1) * layerConfig.NodeCount
+		// wbCount := (previousLayerCount + 1) * layerConfig.NodeCount
+
+		iCount := previousLayerCount + 1
+		wCount := layerConfig.NodeCount
+		d := iCount * wCount
 		l := LayerData{
-			NodeCount:        layerConfig.NodeCount,
-			WeightsAndBiases: make([]float64, wbCount),
-			Velocities:       make([]float64, wbCount),
-			// Nodes:          nodes,
+			NodeCount: layerConfig.NodeCount,
+			WeightsAndBiases: t.New(
+				t.Of(Float),
+				t.WithShape(iCount, wCount),
+				t.WithBacking(t.Random(Float, d)),
+			),
+			Velocities: t.New(
+				t.Of(t.Float64),
+				t.WithShape(iCount, wCount),
+				t.WithBacking(t.Random(Float, d)),
+			),
 			Activation: layerConfig.Activation,
 		}
 		l.reset(weightRange)
@@ -97,7 +112,7 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	bestSwarmKey := fmt.Sprintf(swarmKeyFormat, p.swarmID)
 	res, ok = p.blackboard.Load(bestSwarmKey)
 	checkOk(ok)
-	bestSwarm := res.(Position)
+	// bestSwarm := res.(Position)
 
 	if bestGlobal.Loss <= pti.MaxAccuracy {
 		return
@@ -109,51 +124,52 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	ttSetsWG := &sync.WaitGroup{}
 	ttSetsWG.Add(len(ttSets))
 	for _, ttSet := range ttSets {
-		go func() {
-			flatArrayIndex := 0
-			// Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
-			for _, l := range p.nn.Layers {
-				for i, currentLocalWeight := range l.WeightsAndBiases {
-					bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
-					bestSwarmPosition := bestSwarm.WeightsAndBiases[flatArrayIndex]
-					bestLocalPosition := p.nn.Best.WeightsAndBiases[flatArrayIndex]
+		go func(ttSet *testTrainSet) {
+			log.Fatal("oh noes")
+			// flatArrayIndex := 0
+			// // Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
+			// for _, l := range p.nn.Layers {
+			// 	for i, currentLocalWeight := range l.WeightsAndBiases {
+			// 		bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
+			// 		bestSwarmPosition := bestSwarm.WeightsAndBiases[flatArrayIndex]
+			// 		bestLocalPosition := p.nn.Best.WeightsAndBiases[flatArrayIndex]
 
-					currentLocalVelocity := l.Velocities[i]
+			// 		currentLocalVelocity := l.Velocities[i]
 
-					oldVelocityFactor := pti.InertialWeight * currentLocalVelocity
+			// 		oldVelocityFactor := pti.InertialWeight * currentLocalVelocity
 
-					localRandomness := rand.Float64()
-					bestLocationDelta := bestLocalPosition - currentLocalWeight
-					localPositionFactor := pti.CognitiveWeight * localRandomness * bestLocationDelta
+			// 		localRandomness := rand.Float64()
+			// 		bestLocationDelta := bestLocalPosition - currentLocalWeight
+			// 		localPositionFactor := pti.CognitiveWeight * localRandomness * bestLocationDelta
 
-					swarmRandomness := rand.Float64()
-					bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
-					swarmPositionFactor := pti.SocialWeight * swarmRandomness * bestSwarmlDelta
+			// 		swarmRandomness := rand.Float64()
+			// 		bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
+			// 		swarmPositionFactor := pti.SocialWeight * swarmRandomness * bestSwarmlDelta
 
-					globalRandomness := rand.Float64()
-					bestGlobalDelta := bestGlobalPosition - currentLocalWeight
-					globalPositionFactor := pti.GlobalWeight * globalRandomness * bestGlobalDelta
+			// 		globalRandomness := rand.Float64()
+			// 		bestGlobalDelta := bestGlobalPosition - currentLocalWeight
+			// 		globalPositionFactor := pti.GlobalWeight * globalRandomness * bestGlobalDelta
 
-					revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
-					l.Velocities[i] = revisedVelocity
+			// 		revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
+			// 		l.Velocities[i] = revisedVelocity
 
-					flatArrayIndex++
-				}
-			}
+			// 		flatArrayIndex++
+			// 	}
+			// }
 
-			flatArrayIndex = 0
-			for _, l := range p.nn.Layers {
-				for i, w := range l.WeightsAndBiases {
-					v := l.Velocities[i]
-					revisedPosition := w + v
-					wr := pti.WeightRange
-					clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
-					decayed := clamped * (1 + pti.WeightDecayRate)          // decay (large weights tend to overfit)
+			// flatArrayIndex = 0
+			// for _, l := range p.nn.Layers {
+			// 	for i, w := range l.WeightsAndBiases {
+			// 		v := l.Velocities[i]
+			// 		revisedPosition := w + v
+			// 		wr := pti.WeightRange
+			// 		clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
+			// 		decayed := clamped * (1 + pti.WeightDecayRate)          // decay (large weights tend to overfit)
 
-					l.WeightsAndBiases[i] = decayed
-					flatArrayIndex++
-				}
-			}
+			// 		l.WeightsAndBiases[i] = decayed
+			// 		flatArrayIndex++
+			// 	}
+			// }
 
 			loss := p.calculateMeanLoss(ttSet.train, pti.RidgeRegressionWeight)
 
@@ -161,7 +177,7 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 			kfoldLossAvg += loss
 			mu.Unlock()
 			ttSetsWG.Done()
-		}()
+		}(ttSet)
 	}
 	ttSetsWG.Wait()
 	kfoldLossAvg /= float64(len(ttSets))
@@ -307,7 +323,7 @@ func (p *particle) rmse(dataset Dataset) float64 {
 
 	wg.Add(len(dataset))
 	for _, d := range dataset {
-		go func() {
+		go func(d *Data) {
 			expected := d.Outputs
 			actual := p.nn.Activate(d.Inputs...)
 			for j, a := range actual {
@@ -318,7 +334,7 @@ func (p *particle) rmse(dataset Dataset) float64 {
 				mu.Unlock()
 			}
 			wg.Done()
-		}()
+		}(d)
 	}
 	wg.Wait()
 	return math.Sqrt(rmse / float64(len(dataset)))
