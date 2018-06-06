@@ -6,6 +6,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"time"
 )
 
 const (
@@ -106,14 +107,19 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(ms.particleCount)
-	for _, s := range ms.swarms {
-		for _, p := range s.particles {
-			go p.train(pti, wg)
+	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
+		start := time.Now()
+		ttSets := kfoldTestTrainSets(pti.Dataset)
+		wg := &sync.WaitGroup{}
+		wg.Add(ms.particleCount)
+		for _, s := range ms.swarms {
+			for _, p := range s.particles {
+				p.train(pti, ttSets, wg)
+			}
 		}
+		wg.Wait()
+		log.Printf("iteration %d took %s.", i, time.Since(start))
 	}
-	wg.Wait()
 }
 
 //Best x
@@ -130,8 +136,8 @@ func (ms *MultiSwarm) Best() *NeuralNetwork {
 }
 
 //ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(testData ...*Data) float64 {
-	return ms.Best().ClassificationAccuracy(testData)
+func (ms *MultiSwarm) ClassificationAccuracy(shouldSplit bool, testData ...*Data) float64 {
+	return ms.Best().ClassificationAccuracy(testData, shouldSplit)
 }
 
 //Predict x

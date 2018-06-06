@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"sync"
 )
 
 var (
@@ -111,8 +112,7 @@ func (nn *NeuralNetwork) Activate(intialInputs ...float64) []float64 {
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
-func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data) float64 {
-	correctCount := 0
+func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data, shouldSplit bool) float64 {
 	maxIndex := func(s []float64) int {
 		// index of largest value
 		bigIndex := 0
@@ -126,15 +126,49 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data) float64 {
 		return bigIndex
 	}
 
-	for _, d := range testData {
-		expectedOutput := d.Outputs
-		actualOuputs := nn.Activate(d.Inputs...)
-		i := maxIndex(actualOuputs)
+	correctCount := 0.0
+	splitIndex := len(testData[0].Outputs) / 2
+	wg := &sync.WaitGroup{}
+	wg.Add(len(testData))
+	mu := &sync.Mutex{}
 
-		if expectedOutput[i] == 1 {
-			correctCount++
-		}
+	for _, d := range testData {
+		go func() {
+			expectedOutput := d.Outputs
+			actualOuputs := nn.Activate(d.Inputs...)
+
+			if shouldSplit {
+				correctness := func(e, a []float64) float64 {
+					eIndex := maxIndex(e)
+					aIndex := maxIndex(a)
+					delta := math.Abs(float64(eIndex - aIndex))
+					x := 0.5 * math.Pow(0.5, delta)
+					return x
+				}
+
+				lC := correctness(expectedOutput[:splitIndex], actualOuputs[:splitIndex])
+				rC := correctness(expectedOutput[splitIndex:], actualOuputs[splitIndex:])
+				mu.Lock()
+				correctCount += (lC + rC)
+				mu.Unlock()
+			} else {
+				expectedOutput := d.Outputs
+				actualOuputs := nn.Activate(d.Inputs...)
+				i := maxIndex(actualOuputs)
+
+				if expectedOutput[i] == 1 {
+					mu.Lock()
+					correctCount++
+					mu.Unlock()
+				}
+			}
+
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
+
 	return float64(correctCount) / float64(len(testData))
 }
 

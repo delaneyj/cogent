@@ -32,6 +32,7 @@ const (
 	Gaussian
 	Softmax
 	Maxout
+	SplitSoftmax
 )
 
 //LossMode x

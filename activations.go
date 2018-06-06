@@ -167,29 +167,7 @@ var activations = map[ActivationMode]activationFunction{
 		return result
 	},
 
-	Softmax: func(values []float64) []float64 {
-		// does all output nodes at once so scale doesn't have to be re-computed each time
-		// determine max output sum
-		max := -math.MaxFloat64
-		for _, x := range values {
-			if x > max {
-				max = x
-			}
-		}
-
-		// determine scaling factor -- sum of exp(each val - max)
-		scale := 0.0
-		for _, x := range values {
-			scale += math.Exp(x - max)
-		}
-
-		result := make([]float64, len(values))
-		for i, x := range values {
-			result[i] = math.Exp(x-max) / scale
-		}
-
-		return result // now scaled so that xi sum to 1.0
-	},
+	Softmax: softmax,
 
 	Maxout: func(values []float64) []float64 {
 		max := -math.MaxFloat64
@@ -205,4 +183,36 @@ var activations = map[ActivationMode]activationFunction{
 		}
 		return result
 	},
+
+	SplitSoftmax: func(values []float64) []float64 {
+		offset := len(values) / 2
+		result := make([]float64, len(values))
+		copy(result[:offset], softmax(values[:offset]))
+		copy(result[offset:], softmax(values[offset:]))
+		return result // now scaled so that xi sum to 1.0
+	},
+}
+
+func softmax(values []float64) []float64 {
+	// does all output nodes at once so scale doesn't have to be re-computed each time
+	// determine max output sum
+	max := -math.MaxFloat64
+	for _, x := range values {
+		if x > max {
+			max = x
+		}
+	}
+
+	// determine scaling factor -- sum of exp(each val - max)
+	scale := 0.0
+	for _, x := range values {
+		scale += math.Exp(x - max)
+	}
+
+	result := make([]float64, len(values))
+	for i, x := range values {
+		result[i] = math.Exp(x-max) / scale
+	}
+
+	return result // now scaled so that xi sum to 1.0
 }
