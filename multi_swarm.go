@@ -38,13 +38,6 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		panic("No iterations in training config")
 	}
 
-	// bb := &blackboard{
-	// 	mutex:          keymutex.New(997),
-	// 	best:           map[string]Position{},
-	// 	nnConfig:       *config.NeuralNetworkConfiguration,
-	// 	trainingConfig: trainingConfig,
-	// }
-
 	bb := &sync.Map{}
 	tmpParticle := newParticle(-1, -1, bb, trainingConfig.WeightRange, config.NeuralNetworkConfiguration)
 

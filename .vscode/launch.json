@@ -27,6 +27,17 @@
             "env": {},
             "args": [],
             "showLog": true
-        }
+        },
+        {
+            "name": "XOR test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceRoot}",
+            "args": [
+                "-test.run",
+                "Test_XOR"
+            ]
+        },
     ]
 }

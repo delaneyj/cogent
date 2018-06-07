@@ -41,6 +41,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 }
 
 func Test_XOR(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	t.Parallel()
 	start := time.Now()
 	examples := Dataset{

@@ -32,7 +32,6 @@ var (
 type NeuralNetworkConfiguration struct {
 	Loss         LossMode
 	InputCount   int
-	BucketSize   int
 	LayerConfigs []LayerConfig
 }
 
@@ -59,27 +58,32 @@ type LayerData struct {
 }
 
 func (l *LayerData) reset(weightRange float64) {
-	runtime.Breakpoint()
-	data := l.WeightsAndBiases.Data().([]float64)
-	for i := range data {
-		lo := -0.1 * weightRange
-		hi := 0.1 * weightRange
-		data[i] = (hi-lo)*rand.Float64() + lo
-	}
-	// l.Weights = t.Random(Float)
-	// for i := range l.WeightsAndBiases {
-	// 	l.WeightsAndBiases[i] = (2*weightRange)*rand.Float64() - weightRange
+	rnd := func(x t.Tensor, scaler float64) {
+		data := x.Data().([]float64)
+		rowCount, err := x.Shape().DimSize(0)
+		colCount, err := x.Shape().DimSize(1)
+		checkErr(err)
 
-	// 	lo := -0.1 * weightRange
-	// 	hi := 0.1 * weightRange
-	// 	l.Velocities[i] = (hi-lo)*rand.Float64() + lo
-	// }
+		for i := range data {
+			if i%colCount == rowCount {
+				data[i] = 1
+				continue
+			}
+
+			lo := -scaler * weightRange
+			hi := scaler * weightRange
+			data[i] = (hi-lo)*rand.Float64() + lo
+		}
+		log.Printf("%+v", x)
+	}
+
+	rnd(l.WeightsAndBiases, 1)
+	rnd(l.Velocities, 0.1)
 }
 
 func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 	count := 0
 	for _, l := range nn.Layers {
-		runtime.Breakpoint()
 		count += l.WeightsAndBiases.DataSize()
 		// count += len(l.WeightsAndBiases)
 	}
@@ -88,42 +92,42 @@ func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 
 func (nn *NeuralNetwork) weights() []float64 {
 	weights := make([]float64, nn.weightsAndBiasesCount())
-	log.Fatal("oh noes")
-	// offset := 0
-	// for _, l := range nn.Layers {
-	// 	copy(weights[offset:], l.WeightsAndBiases)
-	// 	offset += len(l.WeightsAndBiases)
-	// }
+	offset := 0
+	for _, l := range nn.Layers {
+		layerWBs := l.WeightsAndBiases.Data().([]float64)
+		copy(weights[offset:], layerWBs)
+		offset += len(layerWBs)
+	}
 	return weights
 }
 
 func (nn *NeuralNetwork) setWeights(weights []float64) {
-	log.Fatal("oh noes")
-	// offset := 0
-	// for _, l := range nn.Layers {
-	// 	copy(l.WeightsAndBiases, weights[offset:])
-	// 	offset += len(l.WeightsAndBiases)
-	// }
+	offset := 0
+	for _, l := range nn.Layers {
+		layerWBs := l.WeightsAndBiases.Data().([]float64)
+		copy(layerWBs, weights[offset:])
+		offset += len(layerWBs)
+	}
 }
 
 func (nn *NeuralNetwork) velocities() []float64 {
 	velocities := make([]float64, nn.weightsAndBiasesCount())
-	log.Fatal("oh noes")
-	// offset := 0
-	// for _, l := range nn.Layers {
-	// 	copy(velocities[offset:], l.Velocities)
-	// 	offset += len(l.Velocities)
-	// }
+	offset := 0
+	for _, l := range nn.Layers {
+		v := l.Velocities.Data().([]float64)
+		copy(velocities[offset:], v)
+		offset += len(v)
+	}
 	return velocities
 }
 
 func (nn *NeuralNetwork) setVelocities(velocities []float64) {
-	log.Fatal("oh noes")
-	// offset := 0
-	// for _, l := range nn.Layers {
-	// copy(l.Velocities, velocities[offset:])
-	// offset += len(l.Velocities)
-	// }
+	offset := 0
+	for _, l := range nn.Layers {
+		v := l.Velocities.Data().([]float64)
+		copy(v, velocities[offset:])
+		offset += len(v)
+	}
 }
 
 func (nn *NeuralNetwork) reset(weightRange float64) {

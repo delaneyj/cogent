@@ -23,12 +23,11 @@ type particle struct {
 }
 
 //NewNeuralNetworkConfiguration x
-func NewNeuralNetworkConfiguration(inputCount, bucketSize int, lc ...LayerConfig) *NeuralNetworkConfiguration {
+func NewNeuralNetworkConfiguration(inputCount int, lc ...LayerConfig) *NeuralNetworkConfiguration {
 	nnc := NeuralNetworkConfiguration{
 		Loss:         Cross,
 		InputCount:   inputCount,
 		LayerConfigs: lc,
-		BucketSize:   bucketSize,
 	}
 	return &nnc
 }
@@ -47,31 +46,31 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 		Loss:        nnConfig.Loss,
 	}
 
-	Float := t.Float64
-	previousLayerCount := nnConfig.InputCount
-	for i, layerConfig := range nnConfig.LayerConfigs {
-		// wbCount := (previousLayerCount + 1) * layerConfig.NodeCount
+	rowCount := nnConfig.InputCount + 1
+	colCount := 0
+	lastLayerIndex := len(nnConfig.LayerConfigs) - 1
 
-		iCount := previousLayerCount + 1
-		wCount := layerConfig.NodeCount
-		d := iCount * wCount
+	for i, layerConfig := range nnConfig.LayerConfigs {
+		colCount = layerConfig.NodeCount
+		if i != lastLayerIndex {
+			colCount++
+		}
+
 		l := LayerData{
 			NodeCount: layerConfig.NodeCount,
 			WeightsAndBiases: t.New(
 				t.Of(Float),
-				t.WithShape(iCount, wCount),
-				t.WithBacking(t.Random(Float, d)),
+				t.WithShape(rowCount, colCount),
 			),
 			Velocities: t.New(
 				t.Of(t.Float64),
-				t.WithShape(iCount, wCount),
-				t.WithBacking(t.Random(Float, d)),
+				t.WithShape(rowCount, colCount),
 			),
 			Activation: layerConfig.Activation,
 		}
 		l.reset(weightRange)
 		nn.Layers[i] = l
-		previousLayerCount = layerConfig.NodeCount
+		rowCount = colCount
 	}
 	nn.Best = Position{
 		Loss:             math.MaxFloat64,
