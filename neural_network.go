@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
-	"sync"
 
 	t "gorgonia.org/tensor"
 )
@@ -23,6 +22,7 @@ var (
 		WeightDecayRate:       0.01,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
+		KFolds:                10,
 	}
 	//Float x
 	Float = t.Float64
@@ -52,17 +52,17 @@ type LayerConfig struct {
 //LayerData x
 type LayerData struct {
 	NodeCount        int
-	WeightsAndBiases t.Tensor
-	Velocities       t.Tensor
+	WeightsAndBiases *t.Dense
+	Velocities       *t.Dense
 	Activation       ActivationMode
 }
 
 func (l *LayerData) reset(weightRange float64) {
 	rnd := func(x t.Tensor, scaler float64) {
 		data := x.Data().([]float64)
-		rowCount, err := x.Shape().DimSize(0)
-		colCount, err := x.Shape().DimSize(1)
-		checkErr(err)
+		s := x.Shape()
+		rowCount := s[0]
+		colCount := s[1]
 
 		for i := range data {
 			if i%colCount == rowCount {
@@ -138,91 +138,99 @@ func (nn *NeuralNetwork) reset(weightRange float64) {
 	nn.Best.Loss = math.MaxFloat64
 }
 
+func cloneAndExpandColumn(x *t.Dense) *t.Dense {
+	s := x.Shape()
+	rowCount := s[0]
+	colCount := s[1]
+	var y t.Dense
+	err := x.CopyTo(&y)
+	checkErr(err)
+	y.Reshape(rowCount, colCount+1)
+
+	data := y.Data().([]float64)
+	for i := colCount; i < rowCount*colCount; i += colCount {
+		data[i] = 1
+	}
+	return &y
+}
+
 //Activate feeds forward through the network
-func (nn *NeuralNetwork) Activate(intialInputs ...float64) []float64 {
-	// inputs := append(intialInputs, 1) // add bias
-	var outputs []float64
-	log.Fatal("oh noes")
-	// for _, l := range nn.Layers {
-	// 	nc := int(l.NodeCount)
-	// 	outputs = make([]float64, nc)
+func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
+	inputs := cloneAndExpandColumn(initialInputs)
 
-	// 	delta := len(l.WeightsAndBiases) / nc
-	// 	offset := 0
-	// 	for n := 0; n < nc; n++ {
-	// 		for i, w := range l.WeightsAndBiases[offset : offset+delta] {
-	// 			input := inputs[i]
-	// 			outputs[n] += input * w
-	// 		}
-	// 		offset += delta
-	// 	}
-
-	// 	activationFunc := activations[l.Activation]
-	// 	outputs = activationFunc(outputs)
-	// 	inputs = append(outputs, 1)
-	// }
-	return outputs
+	var activated *t.Dense
+	for _, l := range nn.Layers {
+		outputs := must(inputs.Mul(l.WeightsAndBiases))
+		activationFunc := activations[l.Activation]
+		activated = activationFunc(outputs)
+		inputs = cloneAndExpandColumn(activated)
+	}
+	return activated
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
-func (nn *NeuralNetwork) ClassificationAccuracy(testData []*Data, shouldSplit bool) float64 {
-	maxIndex := func(s []float64) int {
-		// index of largest value
-		bigIndex := 0
-		biggestVal := s[0]
-		for i, x := range s {
-			if x > biggestVal {
-				biggestVal = x
-				bigIndex = i
-			}
-		}
-		return bigIndex
-	}
+func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
+	// maxIndex := func(s []float64) int {
+	// 	// index of largest value
+	// 	bigIndex := 0
+	// 	biggestVal := s[0]
+	// 	for i, x := range s {
+	// 		if x > biggestVal {
+	// 			biggestVal = x
+	// 			bigIndex = i
+	// 		}
+	// 	}
+	// 	return bigIndex
+	// }
 
 	correctCount := 0.0
-	splitIndex := len(testData[0].Outputs) / 2
-	wg := &sync.WaitGroup{}
-	wg.Add(len(testData))
-	mu := &sync.Mutex{}
+	// splitIndex := len(testData.Outputs) / 2
+	// wg := &sync.WaitGroup{}
+	// wg.Add(len(testData))
+	// mu := &sync.Mutex{}
 
-	for _, d := range testData {
-		go func(d *Data) {
-			expectedOutput := d.Outputs
-			actualOuputs := nn.Activate(d.Inputs...)
+	// lastLayer := nn.Layers[len(nn.Layers)-1]
+	// shouldSplit := lastLayer.Activation == SplitSoftmax
 
-			if shouldSplit {
-				correctness := func(e, a []float64) float64 {
-					eIndex := maxIndex(e)
-					aIndex := maxIndex(a)
-					delta := math.Abs(float64(eIndex - aIndex))
-					x := 0.5 * math.Pow(0.5, delta)
-					return x
-				}
+	// for _, d := range testData {
+	// 	go func(d *Data) {
+	// 		expectedOutput := d.Outputs
+	// 		actualOuputs := nn.Activate(d.Inputs)
 
-				lC := correctness(expectedOutput[:splitIndex], actualOuputs[:splitIndex])
-				rC := correctness(expectedOutput[splitIndex:], actualOuputs[splitIndex:])
-				mu.Lock()
-				correctCount += (lC + rC)
-				mu.Unlock()
-			} else {
-				expectedOutput := d.Outputs
-				actualOuputs := nn.Activate(d.Inputs...)
-				i := maxIndex(actualOuputs)
+	// 		if shouldSplit {
+	// 			correctness := func(e, a []float64) float64 {
+	// 				eIndex := maxIndex(e)
+	// 				aIndex := maxIndex(a)
+	// 				delta := math.Abs(float64(eIndex - aIndex))
+	// 				x := 0.5 * math.Pow(0.5, delta)
+	// 				return x
+	// 			}
 
-				if expectedOutput[i] == 1 {
-					mu.Lock()
-					correctCount++
-					mu.Unlock()
-				}
-			}
+	// 			lC := correctness(expectedOutput[:splitIndex], actualOuputs[:splitIndex])
+	// 			rC := correctness(expectedOutput[splitIndex:], actualOuputs[splitIndex:])
+	// 			mu.Lock()
+	// 			correctCount += (lC + rC)
+	// 			mu.Unlock()
+	// 		} else {
+	// 			expectedOutput := d.Outputs
+	// 			actualOuputs := nn.Activate(d.Inputs...)
+	// 			i := maxIndex(actualOuputs)
 
-			wg.Done()
-		}(d)
-	}
+	// 			if expectedOutput[i] == 1 {
+	// 				mu.Lock()
+	// 				correctCount++
+	// 				mu.Unlock()
+	// 			}
+	// 		}
 
-	wg.Wait()
+	// 		wg.Done()
+	// 	}(d)
+	// }
 
-	return float64(correctCount) / float64(len(testData))
+	// wg.Wait()
+
+	rowCount := testData.Outputs.Shape()[0]
+	return float64(correctCount) / float64(rowCount)
 }
 
 func checkErr(err error) {

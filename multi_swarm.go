@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"runtime"
 	"sync"
 	"time"
+
+	t "gorgonia.org/tensor"
 )
 
 const (
@@ -20,7 +21,7 @@ type MultiSwarm struct {
 	blackboard     *sync.Map
 	swarms         []*swarm
 	trainingConfig TrainingConfiguration
-	dataset        Dataset
+	dataset        *Dataset
 }
 
 type swarm struct {
@@ -42,8 +43,8 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 	tmpParticle := newParticle(-1, -1, bb, trainingConfig.WeightRange, config.NeuralNetworkConfiguration)
 
 	bb.Store(globalKey, Position{
-		Loss:             math.MaxFloat64,
-		WeightsAndBiases: tmpParticle.nn.weights(),
+		Loss:   math.MaxFloat64,
+		Layers: tmpParticle.nn.Layers,
 	})
 
 	ms := MultiSwarm{
@@ -67,23 +68,19 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
 
 		bb.Store(swarmKey, Position{
-			Loss:             math.MaxFloat64,
-			WeightsAndBiases: tmpParticle.nn.weights(),
+			Loss:   math.MaxFloat64,
+			Layers: tmpParticle.nn.Layers,
 		})
 	}
 
-	res, ok := bb.Load(globalKey)
-	if !ok {
-		runtime.Breakpoint()
-	}
-	wbCount := len(res.(Position).WeightsAndBiases)
+	wbCount := ms.swarms[0].particles[0].nn.weightsAndBiasesCount()
 	log.Printf("using %d weights and biases", wbCount)
 
 	return &ms
 }
 
 //Train x
-func (ms *MultiSwarm) Train(dataset Dataset) {
+func (ms *MultiSwarm) Train(dataset *Dataset) {
 	ms.dataset = dataset
 
 	pti := particleTrainingInfo{
@@ -98,11 +95,12 @@ func (ms *MultiSwarm) Train(dataset Dataset) {
 		WeightDecayRate:       ms.trainingConfig.WeightDecayRate,
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
+		KFolds:                ms.trainingConfig.KFolds,
 	}
 
 	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
 		start := time.Now()
-		ttSets := kfoldTestTrainSets(pti.Dataset)
+		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 		wg := &sync.WaitGroup{}
 		wg.Add(ms.particleCount)
 		for _, s := range ms.swarms {
@@ -129,14 +127,11 @@ func (ms *MultiSwarm) Best() *NeuralNetwork {
 }
 
 //ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(testData ...*Data) float64 {
-	layers := ms.swarms[0].particles[0].nn.Layers
-	lastLayer := layers[len(layers)-1]
-	shouldSplit := lastLayer.Activation == SplitSoftmax
-	return ms.Best().ClassificationAccuracy(testData, shouldSplit)
+func (ms *MultiSwarm) ClassificationAccuracy(testData *Dataset) float64 {
+	return ms.Best().ClassificationAccuracy(testData)
 }
 
 //Predict x
-func (ms *MultiSwarm) Predict(inputs ...float64) []float64 {
-	return ms.Best().Activate(inputs...)
+func (ms *MultiSwarm) Predict(inputs *t.Dense) *t.Dense {
+	return ms.Best().Activate(inputs)
 }

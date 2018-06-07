@@ -1,13 +1,12 @@
 package cogent
 
-//Data x
-type Data struct {
-	Inputs  []float64
-	Outputs []float64
-}
+import t "gorgonia.org/tensor"
 
 //Dataset x
-type Dataset []*Data
+type Dataset struct {
+	Inputs  *t.Dense
+	Outputs *t.Dense
+}
 
 //ActivationMode x
 type ActivationMode int
@@ -52,8 +51,8 @@ const (
 
 //Position x
 type Position struct {
-	WeightsAndBiases []float64
-	Loss             float64
+	Layers []LayerData
+	Loss   float64
 }
 
 //TrainingConfiguration x
@@ -68,6 +67,7 @@ type TrainingConfiguration struct {
 	WeightDecayRate       float64
 	ProbablityOfDeath     float64
 	RidgeRegressionWeight float64
+	KFolds                int
 }
 
 //MultiSwarmConfiguration x

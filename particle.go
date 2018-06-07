@@ -73,8 +73,8 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 		rowCount = colCount
 	}
 	nn.Best = Position{
-		Loss:             math.MaxFloat64,
-		WeightsAndBiases: nn.weights(),
+		Loss:   math.MaxFloat64,
+		Layers: nn.Layers,
 	}
 
 	return &particle{
@@ -87,7 +87,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 }
 
 type particleTrainingInfo struct {
-	Dataset               Dataset
+	Dataset               *Dataset
 	MaxIterations         int
 	MaxAccuracy           float64
 	InertialWeight        float64
@@ -98,6 +98,7 @@ type particleTrainingInfo struct {
 	WeightDecayRate       float64
 	DeathRate             float64
 	RidgeRegressionWeight float64
+	KFolds                int
 }
 
 func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *sync.WaitGroup) {
@@ -111,7 +112,7 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	bestSwarmKey := fmt.Sprintf(swarmKeyFormat, p.swarmID)
 	res, ok = p.blackboard.Load(bestSwarmKey)
 	checkOk(ok)
-	// bestSwarm := res.(Position)
+	bestSwarm := res.(Position)
 
 	if bestGlobal.Loss <= pti.MaxAccuracy {
 		return
@@ -124,51 +125,70 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	ttSetsWG.Add(len(ttSets))
 	for _, ttSet := range ttSets {
 		go func(ttSet *testTrainSet) {
-			log.Fatal("oh noes")
-			// flatArrayIndex := 0
-			// // Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
-			// for _, l := range p.nn.Layers {
-			// 	for i, currentLocalWeight := range l.WeightsAndBiases {
-			// 		bestGlobalPosition := bestGlobal.WeightsAndBiases[flatArrayIndex]
-			// 		bestSwarmPosition := bestSwarm.WeightsAndBiases[flatArrayIndex]
-			// 		bestLocalPosition := p.nn.Best.WeightsAndBiases[flatArrayIndex]
+			// Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
+			for i, l := range p.nn.Layers {
+				currentLocal := l.WeightsAndBiases
 
-			// 		currentLocalVelocity := l.Velocities[i]
+				bestLocal := p.nn.Best.Layers[i].WeightsAndBiases
+				currentLocalVelocity := l.Velocities
 
-			// 		oldVelocityFactor := pti.InertialWeight * currentLocalVelocity
+				// oldVelocityFactor := pti.InertialWeight * currentLocalVelocity
+				oldVelocityFactor := must(currentLocalVelocity.MulScalar(pti.InertialWeight, true))
 
-			// 		localRandomness := rand.Float64()
-			// 		bestLocationDelta := bestLocalPosition - currentLocalWeight
-			// 		localPositionFactor := pti.CognitiveWeight * localRandomness * bestLocationDelta
+				// 	localRandomness := rand.Float64()
+				localRandomness := t.NewDense(
+					Float,
+					l.WeightsAndBiases.Shape(),
+					t.WithBacking(t.Random(Float, l.WeightsAndBiases.DataSize())),
+				)
+				// 	bestLocationDelta := bestLocalPosition - currentLocalWeight
+				bestLocalDelta := must(bestLocal.Sub(currentLocal))
+				// 	localPositionFactor := pti.CognitiveWeight * localRandomness * bestLocationDelta
+				localPositionFactor := must(must(localRandomness.MulScalar(pti.CognitiveWeight, true)).Mul(bestLocalDelta))
 
-			// 		swarmRandomness := rand.Float64()
-			// 		bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
-			// 		swarmPositionFactor := pti.SocialWeight * swarmRandomness * bestSwarmlDelta
+				// 	swarmRandomness := rand.Float64()
+				bestSwarm := bestSwarm.Layers[i].WeightsAndBiases
+				swarmRandomness := t.NewDense(
+					Float,
+					l.WeightsAndBiases.Shape(),
+					t.WithBacking(t.Random(Float, l.WeightsAndBiases.DataSize())),
+				)
+				// 	bestSwarmlDelta := bestSwarmPosition - currentLocalWeight
+				bestSwarmlDelta := must(bestSwarm.Sub(currentLocal))
+				// 	swarmPositionFactor := pti.SocialWeight * swarmRandomness * bestSwarmlDelta
+				swarmPositionFactor := must(must(swarmRandomness.MulScalar(pti.SocialWeight, true)).Mul(bestSwarmlDelta))
 
-			// 		globalRandomness := rand.Float64()
-			// 		bestGlobalDelta := bestGlobalPosition - currentLocalWeight
-			// 		globalPositionFactor := pti.GlobalWeight * globalRandomness * bestGlobalDelta
+				// 	globalRandomness := rand.Float64()
+				bestGlobal := bestGlobal.Layers[i].WeightsAndBiases
+				globalRandomness := t.NewDense(
+					Float,
+					l.WeightsAndBiases.Shape(),
+					t.WithBacking(t.Random(Float, l.WeightsAndBiases.DataSize())),
+				)
+				// 	bestGlobalDelta := bestGlobalPosition - currentLocalWeight
+				bestGlobalDelta := must(bestGlobal.Sub(currentLocal))
+				// 	globalPositionFactor := pti.GlobalWeight * globalRandomness * bestGlobalDelta
+				globalPositionFactor := must(must(globalRandomness.MulScalar(pti.GlobalWeight, true)).Mul(bestGlobalDelta))
 
-			// 		revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
-			// 		l.Velocities[i] = revisedVelocity
+				// 	revisedVelocity := oldVelocityFactor + localPositionFactor + swarmPositionFactor + globalPositionFactor
+				revisedVelocity := must(must(must(oldVelocityFactor.Add(localPositionFactor)).Add(swarmPositionFactor)).Add(globalPositionFactor))
 
-			// 		flatArrayIndex++
-			// 	}
-			// }
+				// 	l.Velocities[i] = revisedVelocity
+				l.Velocities = revisedVelocity
+				// 	i++
+				// }
+			}
 
-			// flatArrayIndex = 0
-			// for _, l := range p.nn.Layers {
-			// 	for i, w := range l.WeightsAndBiases {
-			// 		v := l.Velocities[i]
-			// 		revisedPosition := w + v
-			// 		wr := pti.WeightRange
-			// 		clamped := math.Max(-wr, math.Min(wr, revisedPosition)) // restriction
-			// 		decayed := clamped * (1 + pti.WeightDecayRate)          // decay (large weights tend to overfit)
-
-			// 		l.WeightsAndBiases[i] = decayed
-			// 		flatArrayIndex++
-			// 	}
-			// }
+			wr := pti.WeightRange
+			for _, l := range p.nn.Layers {
+				revisedPosition := must(l.WeightsAndBiases.Add(l.Velocities))
+				data := revisedPosition.Data().([]float64)
+				for i, w := range data {
+					clamped := math.Max(-wr, math.Min(wr, w))      // restriction
+					decayed := clamped * (1 + pti.WeightDecayRate) // decay (large weights tend to overfit)
+					data[i] = decayed
+				}
+			}
 
 			loss := p.calculateMeanLoss(ttSet.train, pti.RidgeRegressionWeight)
 
@@ -185,7 +205,7 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	wasGlobalBest := p.setBest(kfoldLossAvg, pti.RidgeRegressionWeight)
 	if wasGlobalBest {
 		// rmse := p.rmse(pti.Dataset)
-		testAcc := p.nn.ClassificationAccuracy(pti.Dataset, true)
+		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
 		log.Printf("<%d:%d> accuracy:%f loss:%f", p.swarmID, p.id, testAcc, kfoldLossAvg)
 
 		filename := fmt.Sprintf("KFX_%0.8f_TACC%0.16f.nn", kfoldLossAvg, testAcc)
@@ -215,55 +235,64 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	wg.Done()
 }
 
-type testTrainSet struct {
-	train, test Dataset
+func must(d *t.Dense, err error) *t.Dense {
+	if err != nil {
+		log.Fatal(err)
+	}
+	return d
 }
 
-func kfoldTestTrainSets(dataset Dataset) []*testTrainSet {
-	k := 10
-	datasetCount := len(dataset)
-	if datasetCount < k {
-		k = datasetCount
-	}
+type testTrainSet struct {
+	train, test *Dataset
+}
 
-	buckets := make([]Dataset, k)
-	for i := range buckets {
-		buckets[i] = Dataset{}
-	}
+type testTrainSets []*testTrainSet
 
-	shuffledIndexes := make([]int, datasetCount)
-	for i := range shuffledIndexes {
-		shuffledIndexes[i] = i
-	}
-	for i := datasetCount - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
-		shuffledIndexes[i], shuffledIndexes[j] = shuffledIndexes[j], shuffledIndexes[i]
-	}
+func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
+	log.Fatal("oh noes")
+	// datasetCount := len(dataset)
+	// if datasetCount < k {
+	// 	k = datasetCount
+	// }
 
-	for i := 0; i < datasetCount; i++ {
-		ri := shuffledIndexes[i]
-		d := dataset[ri]
-		bi := i % k
-		buckets[bi] = append(buckets[bi], d)
-	}
+	// buckets := make([]Dataset, k)
+	// for i := range buckets {
+	// 	buckets[i] = Dataset{}
+	// }
 
-	tt := make([]*testTrainSet, k)
-	for i := range tt {
-		tt[i] = &testTrainSet{
-			train: Dataset{},
-			test:  Dataset{},
-		}
-	}
+	// shuffledIndexes := make([]int, datasetCount)
+	// for i := range shuffledIndexes {
+	// 	shuffledIndexes[i] = i
+	// }
+	// for i := datasetCount - 1; i > 0; i-- {
+	// 	j := rand.Intn(i + 1)
+	// 	shuffledIndexes[i], shuffledIndexes[j] = shuffledIndexes[j], shuffledIndexes[i]
+	// }
 
-	for i, b := range buckets {
-		for j, t := range tt {
-			if i == j {
-				t.test = append(t.test, b...)
-			} else {
-				t.train = append(t.train, b...)
-			}
-		}
-	}
+	// for i := 0; i < datasetCount; i++ {
+	// 	ri := shuffledIndexes[i]
+	// 	d := dataset[ri]
+	// 	bi := i % k
+	// 	buckets[bi] = append(buckets[bi], d)
+	// }
+
+	tt := make(testTrainSets, k)
+	// for i := range tt {
+	// 	tt[i] = &testTrainSet{
+	// 		train: Dataset{},
+	// 		test:  Dataset{},
+	// 	}
+	// }
+
+	// for i, b := range buckets {
+	// 	for j, t := range tt {
+	// 		if i == j {
+	// 			t.test = append(t.test, b...)
+	// 		} else {
+	// 			t.train = append(t.train, b...)
+	// 		}
+	// 	}
+	// }
 
 	return tt
 }
@@ -278,8 +307,8 @@ func (p *particle) setBest(loss float64, ridgeRegressionWeight float64) bool {
 		}
 		log.Printf("Local best <%d:%d> from %s->%f", p.swarmID, p.id, blf, loss)
 		updatedBest := Position{
-			Loss:             loss,
-			WeightsAndBiases: p.nn.weights(),
+			Loss:   loss,
+			Layers: p.nn.Layers,
 		}
 
 		p.nn.Best = updatedBest
@@ -316,49 +345,54 @@ func (p *particle) setBest(loss float64, ridgeRegressionWeight float64) bool {
 }
 
 func (p *particle) rmse(dataset Dataset) float64 {
-	wg := &sync.WaitGroup{}
-	mu := &sync.Mutex{}
-	rmse := 0.0
 
-	wg.Add(len(dataset))
-	for _, d := range dataset {
-		go func(d *Data) {
-			expected := d.Outputs
-			actual := p.nn.Activate(d.Inputs...)
-			for j, a := range actual {
-				e := expected[j]
-				diff := a - e
-				mu.Lock()
-				rmse += diff * diff
-				mu.Unlock()
-			}
-			wg.Done()
-		}(d)
-	}
-	wg.Wait()
-	return math.Sqrt(rmse / float64(len(dataset)))
+	log.Fatal("oh noes")
+	rmse := 0.0
+	// wg := &sync.WaitGroup{}
+	// mu := &sync.Mutex{}
+
+	// wg.Add(len(dataset))
+	// for _, d := range dataset {
+	// 	go func(d *Data) {
+	// 		expected := d.Outputs
+	// 		actual := p.nn.Activate(d.Inputs...)
+	// 		for j, a := range actual {
+	// 			e := expected[j]
+	// 			diff := a - e
+	// 			mu.Lock()
+	// 			rmse += diff * diff
+	// 			mu.Unlock()
+	// 		}
+	// 		wg.Done()
+	// 	}(d)
+	// }
+	// wg.Wait()
+	// return math.Sqrt(rmse / float64(len(dataset)))
+	return rmse
 }
 
-func (p *particle) calculateMeanLoss(dataset Dataset, ridgeRegressionWeight float64) float64 {
-	sum := 0.0
-	for _, d := range dataset {
-		actualOuputs := p.nn.Activate(d.Inputs...)
-		err := p.fn(d.Outputs, actualOuputs)
-		if math.IsNaN(err) {
-			runtime.Breakpoint()
-		}
-		sum += err
-	}
-	loss := sum / float64(len(dataset))
+func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
+	log.Fatal("oh noes")
+	// sum := 0.0
+	// for _, d := range dataset {
+	// 	actualOuputs := p.nn.Activate(d.Inputs...)
+	// 	err := p.fn(d.Outputs, actualOuputs)
+	// 	if math.IsNaN(err) {
+	// 		runtime.Breakpoint()
+	// 	}
+	// 	sum += err
+	// }
+	// loss := sum / float64(len(dataset))
 
-	l2Regularization := 0.0
-	for _, w := range p.nn.weights() {
-		l2Regularization += w * w
-	}
-	l2Regularization /= float64(p.nn.weightsAndBiasesCount())
-	l2Regularization *= ridgeRegressionWeight
-	// log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
-	return loss + l2Regularization
+	// l2Regularization := 0.0
+	// for _, w := range p.nn.weights() {
+	// 	l2Regularization += w * w
+	// }
+	// l2Regularization /= float64(p.nn.weightsAndBiasesCount())
+	// l2Regularization *= ridgeRegressionWeight
+	// // log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
+	// return loss + l2Regularization
+	return 0
 }
 
 func checkOk(ok bool) {
