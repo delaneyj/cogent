@@ -249,11 +249,14 @@ type testTrainSet struct {
 type testTrainSets []*testTrainSet
 
 func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
-	log.Fatal("oh noes")
-	// datasetCount := len(dataset)
-	// if datasetCount < k {
-	// 	k = datasetCount
-	// }
+	rowCount := dataset.rowCount()
+	if rowCount < k {
+		k = rowCount
+	}
+
+	rand.Shuffle(rowCount, func(i, j int) {
+		log.Fatal("oh noes")
+	})
 
 	// buckets := make([]Dataset, k)
 	// for i := range buckets {

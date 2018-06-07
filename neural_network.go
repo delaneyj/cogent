@@ -74,7 +74,7 @@ func (l *LayerData) reset(weightRange float64) {
 			hi := scaler * weightRange
 			data[i] = (hi-lo)*rand.Float64() + lo
 		}
-		log.Printf("%+v", x)
+		// log.Printf("%+v", x)
 	}
 
 	rnd(l.WeightsAndBiases, 1)
@@ -229,8 +229,7 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
 
 	// wg.Wait()
 
-	rowCount := testData.Outputs.Shape()[0]
-	return float64(correctCount) / float64(rowCount)
+	return float64(correctCount) / float64(testData.rowCount())
 }
 
 func checkErr(err error) {

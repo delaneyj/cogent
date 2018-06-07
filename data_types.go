@@ -8,6 +8,10 @@ type Dataset struct {
 	Outputs *t.Dense
 }
 
+func (d *Dataset) rowCount() int {
+	return d.Outputs.Shape()[0]
+}
+
 //ActivationMode x
 type ActivationMode int
 
