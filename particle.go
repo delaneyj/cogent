@@ -124,7 +124,7 @@ func (p *particle) train(pti particleTrainingInfo, ttSets []*testTrainSet, wg *s
 	ttSetsWG := &sync.WaitGroup{}
 	ttSetsWG.Add(len(ttSets))
 	for _, ttSet := range ttSets {
-		go func(ttSet *testTrainSet) {
+		func(ttSet *testTrainSet) {
 			// Compute new velocity.  Depends on old velocity, best position of parrticle, and best position of any particle
 			for i, l := range p.nn.Layers {
 				currentLocal := l.WeightsAndBiases
@@ -254,48 +254,95 @@ func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
 		k = rowCount
 	}
 
+	inputs := dataset.Inputs.Data().([]float64)
+	iColCount := dataset.Inputs.Shape()[1]
+	outputs := dataset.Outputs.Data().([]float64)
+	oColCount := dataset.Outputs.Shape()[1]
+
 	rand.Shuffle(rowCount, func(i, j int) {
-		log.Fatal("oh noes")
+		var x, y, tmp []float64
+
+		iStartI := iColCount * i
+		iEndI := iStartI + iColCount
+		iStartJ := iColCount * j
+		iEndJ := iStartJ + iColCount
+		x = inputs[iStartI:iEndI]
+		y = inputs[iStartJ:iEndJ]
+		tmp = append([]float64{}, x...)
+		copy(x, y)
+		copy(y, tmp)
+
+		oStartI := oColCount * i
+		oEndI := oStartI + oColCount
+		oStartJ := oColCount * j
+		oEndJ := oStartJ + oColCount
+		x = outputs[oStartI:oEndI]
+		y = outputs[oStartJ:oEndJ]
+		tmp = append([]float64{}, x...)
+		copy(x, y)
+		copy(y, tmp)
 	})
 
-	// buckets := make([]Dataset, k)
-	// for i := range buckets {
-	// 	buckets[i] = Dataset{}
-	// }
-
-	// shuffledIndexes := make([]int, datasetCount)
-	// for i := range shuffledIndexes {
-	// 	shuffledIndexes[i] = i
-	// }
-	// for i := datasetCount - 1; i > 0; i-- {
-	// 	j := rand.Intn(i + 1)
-	// 	shuffledIndexes[i], shuffledIndexes[j] = shuffledIndexes[j], shuffledIndexes[i]
-	// }
-
-	// for i := 0; i < datasetCount; i++ {
-	// 	ri := shuffledIndexes[i]
-	// 	d := dataset[ri]
-	// 	bi := i % k
-	// 	buckets[bi] = append(buckets[bi], d)
-	// }
+	type bucket struct {
+		inputs  []float64
+		outputs []float64
+	}
+	bucketRowCount := rowCount / k
+	buckets := make([]bucket, k)
+	for i := range buckets {
+		iOffset := i * iColCount
+		oOffset := i * oColCount
+		buckets[i] = bucket{
+			inputs:  inputs[iOffset : iOffset+iColCount],
+			outputs: outputs[oOffset : oOffset+oColCount],
+		}
+	}
 
 	tt := make(testTrainSets, k)
-	// for i := range tt {
-	// 	tt[i] = &testTrainSet{
-	// 		train: Dataset{},
-	// 		test:  Dataset{},
-	// 	}
-	// }
+	for i := 0; i < k; i++ {
+		testBucket := buckets[i]
+		test := Dataset{
+			Inputs: t.New(
+				t.Of(Float),
+				t.WithShape(bucketRowCount, iColCount),
+				t.WithBacking(testBucket.inputs),
+			),
+			Outputs: t.New(
+				t.Of(Float),
+				t.WithShape(bucketRowCount, oColCount),
+				t.WithBacking(testBucket.outputs),
+			),
+		}
 
-	// for i, b := range buckets {
-	// 	for j, t := range tt {
-	// 		if i == j {
-	// 			t.test = append(t.test, b...)
-	// 		} else {
-	// 			t.train = append(t.train, b...)
-	// 		}
-	// 	}
-	// }
+		trainingRowCount := 0
+		trainBucket := bucket{}
+		for j, b := range buckets {
+			if j == i {
+				continue
+			}
+
+			trainBucket.inputs = append(trainBucket.inputs, b.inputs...)
+			trainBucket.outputs = append(trainBucket.outputs, b.outputs...)
+			trainingRowCount++
+		}
+		train := Dataset{
+			Inputs: t.New(
+				t.Of(Float),
+				t.WithShape(trainingRowCount, iColCount),
+				t.WithBacking(trainBucket.inputs),
+			),
+			Outputs: t.New(
+				t.Of(Float),
+				t.WithShape(trainingRowCount, oColCount),
+				t.WithBacking(trainBucket.outputs),
+			),
+		}
+
+		tt[i] = &testTrainSet{
+			train: &train,
+			test:  &test,
+		}
+	}
 
 	return tt
 }

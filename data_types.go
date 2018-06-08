@@ -8,6 +8,10 @@ type Dataset struct {
 	Outputs *t.Dense
 }
 
+func (d *Dataset) outputColCount() int {
+	return d.Outputs.Shape()[1]
+}
+
 func (d *Dataset) rowCount() int {
 	return d.Outputs.Shape()[0]
 }
