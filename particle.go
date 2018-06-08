@@ -422,27 +422,18 @@ func (p *particle) rmse(dataset Dataset) float64 {
 }
 
 func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
-	log.Fatal("oh noes")
-	// sum := 0.0
-	// for _, d := range dataset {
-	// 	actualOuputs := p.nn.Activate(d.Inputs...)
-	// 	err := p.fn(d.Outputs, actualOuputs)
-	// 	if math.IsNaN(err) {
-	// 		runtime.Breakpoint()
-	// 	}
-	// 	sum += err
-	// }
-	// loss := sum / float64(len(dataset))
+	actualOutputs := p.nn.Activate(dataset.Inputs)
+	loss := p.fn(dataset.Outputs, actualOutputs)
 
-	// l2Regularization := 0.0
-	// for _, w := range p.nn.weights() {
-	// 	l2Regularization += w * w
-	// }
-	// l2Regularization /= float64(p.nn.weightsAndBiasesCount())
-	// l2Regularization *= ridgeRegressionWeight
-	// // log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
-	// return loss + l2Regularization
-	return 0
+	l2Regularization := 0.0
+	for _, w := range p.nn.weights() {
+		l2Regularization += w * w
+	}
+	l2Regularization /= float64(p.nn.weightsAndBiasesCount())
+	l2Regularization *= ridgeRegressionWeight
+
+	log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
+	return loss + l2Regularization
 }
 
 func checkOk(ok bool) {

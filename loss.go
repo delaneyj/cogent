@@ -1,8 +1,9 @@
 package cogent
 
 import (
-	"math"
-	"runtime"
+	"log"
+
+	t "gorgonia.org/tensor"
 )
 
 const epsilon = 7.0/3 - 4.0/3 - 1.0
@@ -19,124 +20,140 @@ var LossFns = map[LossMode]lossFn{
 	ItakuraSaitoDistance:                 itakuraSaitoDistanceLoss,
 }
 
-type lossFn func(want, actual []float64) float64
+type lossFn func(want, actual *t.Dense) float64
 
-func squaredLoss(want, actual []float64) float64 {
-	sum := 0.0
-	for i, w := range want {
-		a := actual[i]
-		e := a - w
-		sum += e * e
-	}
-	return sum
+func squaredLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// sum := 0.0
+	// for i, w := range want {
+	// 	a := actual[i]
+	// 	e := a - w
+	// 	sum += e * e
+	// }
+	// return sum
 }
 
-func crossLoss(expected, actual []float64) float64 {
-	sum := 0.0
-	for i, e := range expected {
-		a := actual[i]
+func crossLoss(expected, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// sum := 0.0
+	// for i, e := range expected {
+	// 	a := actual[i]
 
-		if a == 0 {
-			a = epsilon
-		}
+	// 	if a == 0 {
+	// 		a = epsilon
+	// 	}
 
-		if x := -math.Log(a) * e; !math.IsNaN(x) {
-			sum += x
-		}
+	// 	if x := -math.Log(a) * e; !math.IsNaN(x) {
+	// 		sum += x
+	// 	}
 
-		if math.IsInf(sum, 0) || sum < 0 {
-			runtime.Breakpoint()
-		}
-	}
+	// 	if math.IsInf(sum, 0) || sum < 0 {
+	// 		runtime.Breakpoint()
+	// 	}
+	// }
 
-	return sum
+	// return sum
 }
 
-func hinge(want, actual []float64) float64 {
-	sum := 0.0
-	for i, w := range want {
-		a := actual[i]
-		sum += math.Max(0, 1-a*w)
-	}
-	return sum
+func hinge(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// sum := 0.0
+	// for i, w := range want {
+	// 	a := actual[i]
+	// 	sum += math.Max(0, 1-a*w)
+	// }
+	// return sum
 }
 
-func exponentialLoss(want, actual []float64) float64 {
-	return math.Exp(squaredLoss(want, actual))
+func exponentialLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// return math.Exp(squaredLoss(want, actual))
 }
 
-func hellingerDistanceLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(actual)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
+func hellingerDistanceLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// wl, al := len(want), len(actual)
+	// if wl != al || wl == 0 {
+	// 	panic("expected and actual need to be same length")
+	// }
 
-	sum := 0.0
-	for i, w := range want {
-		a := actual[i]
-		b := math.Sqrt(a) - math.Sqrt(w)
-		sum += b * b
-	}
-	return (1 / math.Sqrt2) * math.Sqrt(sum)
+	// sum := 0.0
+	// for i, w := range want {
+	// 	a := actual[i]
+	// 	b := math.Sqrt(a) - math.Sqrt(w)
+	// 	sum += b * b
+	// }
+	// return (1 / math.Sqrt2) * math.Sqrt(sum)
 }
 
-func kullbackLeiblerDivergenceLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(actual)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
+func kullbackLeiblerDivergenceLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// wl, al := len(want), len(actual)
+	// if wl != al || wl == 0 {
+	// 	panic("expected and actual need to be same length")
+	// }
 
-	sum := 0.0
-	for i, w := range want {
-		a := actual[i]
-		l := math.Log(w / a)
-		if !math.IsNaN(l) && !math.IsInf(l, 0) {
-			sum += w * l
-		}
-	}
-	return sum
+	// sum := 0.0
+	// for i, w := range want {
+	// 	a := actual[i]
+	// 	l := math.Log(w / a)
+	// 	if !math.IsNaN(l) && !math.IsInf(l, 0) {
+	// 		sum += w * l
+	// 	}
+	// }
+	// return sum
 }
 
-func generalizedKullbackLeiblerDivergenceLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(actual)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
+func generalizedKullbackLeiblerDivergenceLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// wl, al := len(want), len(actual)
+	// if wl != al || wl == 0 {
+	// 	panic("expected and actual need to be same length")
+	// }
 
-	xSum, ySum, zSum := 0.0, 0.0, 0.0
-	for i, w := range want {
-		a := actual[i]
+	// xSum, ySum, zSum := 0.0, 0.0, 0.0
+	// for i, w := range want {
+	// 	a := actual[i]
 
-		l := w * math.Log(w/a)
-		if !math.IsNaN(l) && !math.IsInf(l, 0) {
-			xSum += l
-			ySum += w
-			zSum += a
-		}
-	}
+	// 	l := w * math.Log(w/a)
+	// 	if !math.IsNaN(l) && !math.IsInf(l, 0) {
+	// 		xSum += l
+	// 		ySum += w
+	// 		zSum += a
+	// 	}
+	// }
 
-	return xSum - ySum + zSum
+	// return xSum - ySum + zSum
 }
 
-func itakuraSaitoDistanceLoss(want, actual []float64) float64 {
-	wl, al := len(want), len(actual)
-	if wl != al || wl == 0 {
-		panic("expected and actual need to be same length")
-	}
+func itakuraSaitoDistanceLoss(want, actual *t.Dense) float64 {
+	log.Fatal("oh noes")
+	return 0
+	// wl, al := len(want), len(actual)
+	// if wl != al || wl == 0 {
+	// 	panic("expected and actual need to be same length")
+	// }
 
-	nonSymmetric := func(wX, aY []float64) float64 {
-		sum := 0.0
-		for i, w := range wX {
-			a := aY[i]
-			x := (w * w) / (a * a)
-			if y := math.Log(x); !math.IsNaN(y) && !math.IsInf(y, 0) {
-				sum += x - y - 1
-			}
-		}
-		return (1 / 2 * math.Pi) + sum
-	}
+	// nonSymmetric := func(wX, aY *t.Dense) float64 {
+	// 	sum := 0.0
+	// 	for i, w := range wX {
+	// 		a := aY[i]
+	// 		x := (w * w) / (a * a)
+	// 		if y := math.Log(x); !math.IsNaN(y) && !math.IsInf(y, 0) {
+	// 			sum += x - y - 1
+	// 		}
+	// 	}
+	// 	return (1 / 2 * math.Pi) + sum
+	// }
 
-	a := nonSymmetric(want, actual)
-	b := nonSymmetric(actual, want)
-	return (a + b) / 2
+	// a := nonSymmetric(want, actual)
+	// b := nonSymmetric(actual, want)
+	// return (a + b) / 2
 }
