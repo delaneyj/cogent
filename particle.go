@@ -104,7 +104,7 @@ type particleTrainingInfo struct {
 	StoreGlobalBest       bool
 }
 
-func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*testTrainSet, testAccCh chan float64) {
+func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*testTrainSet) float64 {
 	testAcc := -1.0
 	// start := time.Now()
 
@@ -183,9 +183,9 @@ func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*test
 				revisedPosition := must(l.WeightsAndBiases.Add(&l.Velocities))
 				data := revisedPosition.Data().([]float64)
 				for i, w := range data {
-					clamped := math.Max(-wr, math.Min(wr, w))      // restriction
-					decayed := clamped * (1 - pti.WeightDecayRate) // decay (large weights tend to overfit)
-					data[i] = decayed
+					clamped := math.Max(-wr, math.Min(wr, w)) // restriction
+					// decayed := clamped * (1 - pti.WeightDecayRate) // decay (large weights tend to overfit)
+					data[i] = clamped
 				}
 
 				// log.Printf("Weight were\n%+v\nNow\n%+v", l.WeightsAndBiases, revisedPosition)
@@ -208,7 +208,7 @@ func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*test
 	if wasGlobalBest {
 		// rmse := p.rmse(pti.Dataset)
 		testAcc = p.nn.ClassificationAccuracy(pti.Dataset)
-		log.Printf("<%d:%d> accuracy:%f loss:%f", p.swarmID, p.id, testAcc, kfoldLossAvg)
+		log.Printf("%d <%d:%d> accuracy:%f loss:%f", iteration, p.swarmID, p.id, testAcc, kfoldLossAvg)
 
 		filename := fmt.Sprintf("KFX_%0.8f_TACC%0.2f.nn", kfoldLossAvg, 100*testAcc)
 		log.Printf(filename)
@@ -234,7 +234,7 @@ func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*test
 		p.setBest(iteration, loss, pti.RidgeRegressionWeight)
 	}
 
-	testAccCh <- testAcc
+	return testAcc
 }
 
 func must(d *t.Dense, err error) *t.Dense {

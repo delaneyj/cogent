@@ -86,18 +86,17 @@ var activations = map[ActivationMode]activationFunction{
 		}
 		return activated
 	},
-	LeakyReLU: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	if x < 0 {
-		// 		result[i] = x * 0.01
-		// 	} else {
-		// 		result[i] = x
-		// 	}
-		// }
-		// return result
+	LeakyReLU: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			if x < 0 {
+				data[i] = x * 0.01
+			} else {
+				data[i] = x
+			}
+		}
+		return activated
 	},
 	ELU: func(values *t.Dense) *t.Dense {
 		log.Fatal("oh noes")

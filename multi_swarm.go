@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	t "gorgonia.org/tensor"
 )
@@ -99,35 +100,40 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 		StoreGlobalBest:       ms.trainingConfig.StoreGlobalBest,
 	}
 
+	bestAcc := -math.MaxFloat64
+	notBetterAccIterations := 0
 loop:
-	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
-		// start := time.Now()
+	for notBetterAccIterations < ms.trainingConfig.MaxIterations {
+		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 		// wg := &sync.WaitGroup{}
 		// wg.Add(ms.particleCount)
-		chs := make([]chan float64, ms.particleCount)
-		for i := range chs {
-			chs[i] = make(chan float64)
-		}
 
-		chIndex := 0
+		foundBetter := false
 		for i, s := range ms.swarms {
 			for _, p := range s.particles {
-				ch := chs[chIndex]
-				go p.train(i, pti, ttSets, ch)
-				chIndex++
+				testAcc := p.train(i, pti, ttSets)
+				if testAcc >= ms.trainingConfig.TargetAccuracy {
+					break loop
+				}
+
+				if testAcc > bestAcc {
+					bestAcc = testAcc
+					foundBetter = true
+				}
+
+				b := ms.Best()
+				// wg.Wait()
+				log.Printf("iteration %d took %s. l:%f", notBetterAccIterations, time.Since(start), b.Best.Loss)
 			}
 		}
 
-		for _, ch := range chs {
-			testAcc := <-ch
-			// wg.Done()
-			if testAcc >= ms.trainingConfig.TargetAccuracy {
-				break loop
-			}
+		if foundBetter {
+			notBetterAccIterations = 0
+		} else {
+			notBetterAccIterations++
 		}
-		// wg.Wait()
-		// log.Printf("iteration %d took %s.", i, time.Since(start))
+
 	}
 }
 

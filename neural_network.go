@@ -20,7 +20,7 @@ var (
 		GlobalWeight:          0.3645,
 		MaxIterations:         500,
 		TargetAccuracy:        1,
-		WeightRange:           3,
+		WeightRange:           10,
 		WeightDecayRate:       0.01,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
@@ -188,7 +188,7 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
 	expectedOutput := eT.Data().([]float64)
 	aT := nn.Activate(testData.Inputs)
 	actualOuputs := aT.Data().([]float64)
-	log.Printf("%+v%+v", eT, aT)
+	log.Printf("%+v", aT)
 
 	for i := 0; i < rowCount; i++ {
 		start := i * colCount

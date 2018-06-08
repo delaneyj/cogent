@@ -234,6 +234,7 @@ func Test_XOR(tt *testing.T) {
 // }
 
 func Test_Flowers(tt *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	data := []struct {
 		i, o []float64
 	}{
@@ -300,24 +301,8 @@ func Test_Flowers(tt *testing.T) {
 			InputCount: 4,
 			LayerConfigs: []LayerConfig{
 				{
-					NodeCount:  10,
-					Activation: ReLU,
-				},
-				{
-					NodeCount:  10,
-					Activation: ReLU,
-				},
-				{
-					NodeCount:  10,
-					Activation: ReLU,
-				},
-				{
-					NodeCount:  10,
-					Activation: ReLU,
-				},
-				{
-					NodeCount:  10,
-					Activation: ReLU,
+					NodeCount:  6,
+					Activation: LeakyReLU,
 				},
 				{
 					NodeCount:  3,
@@ -325,10 +310,13 @@ func Test_Flowers(tt *testing.T) {
 				},
 			},
 		},
-		ParticleCount: 8,
-		SwarmCount:    5,
+		ParticleCount: 16,
+		SwarmCount:    4,
 	}
-	s := NewMultiSwarm(config, DefaultTrainingConfig)
+	tc := DefaultTrainingConfig
+	tc.MaxIterations = 500
+	tc.WeightRange = 3
+	s := NewMultiSwarm(config, tc)
 	s.Train(examples)
 	accuracy := s.ClassificationAccuracy(examples)
 	assert.Equal(tt, 1.0, accuracy)
