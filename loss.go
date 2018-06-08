@@ -2,6 +2,8 @@ package cogent
 
 import (
 	"log"
+	math "math"
+	"runtime"
 
 	t "gorgonia.org/tensor"
 )
@@ -35,26 +37,31 @@ func squaredLoss(want, actual *t.Dense) float64 {
 }
 
 func crossLoss(expected, actual *t.Dense) float64 {
-	log.Fatal("oh noes")
-	return 0
-	// sum := 0.0
-	// for i, e := range expected {
-	// 	a := actual[i]
+	sum := 0.0
 
-	// 	if a == 0 {
-	// 		a = epsilon
-	// 	}
+	ar := denseToRows(actual)
+	er := denseToRows(expected)
+	for i, actualRow := range ar {
+		expectedRow := er[i]
 
-	// 	if x := -math.Log(a) * e; !math.IsNaN(x) {
-	// 		sum += x
-	// 	}
+		for i, e := range expectedRow {
+			a := actualRow[i]
 
-	// 	if math.IsInf(sum, 0) || sum < 0 {
-	// 		runtime.Breakpoint()
-	// 	}
-	// }
+			if a == 0 {
+				a = epsilon
+			}
 
-	// return sum
+			if x := -math.Log(a) * e; !math.IsNaN(x) {
+				sum += x
+			}
+
+			if math.IsInf(sum, 0) || sum < 0 {
+				runtime.Breakpoint()
+			}
+		}
+	}
+
+	return sum / float64(len(ar))
 }
 
 func hinge(want, actual *t.Dense) float64 {

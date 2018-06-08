@@ -2,6 +2,7 @@ package cogent
 
 import (
 	"log"
+	math "math"
 
 	t "gorgonia.org/tensor"
 )
@@ -75,16 +76,15 @@ var activations = map[ActivationMode]activationFunction{
 		// }
 		// return result
 	},
-	ReLU: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	if x > 0 {
-		// 		result[i] = x
-		// 	}
-		// }
-		// return result
+	ReLU: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			if x < 0 {
+				data[i] = 0
+			}
+		}
+		return activated
 	},
 	LeakyReLU: func(values *t.Dense) *t.Dense {
 		log.Fatal("oh noes")
@@ -231,28 +231,44 @@ var activations = map[ActivationMode]activationFunction{
 	},
 }
 
-func softmax(values *t.Dense) *t.Dense {
-	log.Fatal("oh noes")
-	var result t.Dense
+func softmax(tt *t.Dense) *t.Dense {
+	result := tt.Clone().(*t.Dense)
 
-	// // does all output nodes at once so scale doesn't have to be re-computed each time
-	// // determine max output sum
-	// max := -math.MaxFloat64
-	// for _, x := range values {
-	// 	if x > max {
-	// 		max = x
-	// 	}
-	// }
+	// does all output nodes at once so scale doesn't have to be re-computed each time
+	// determine max output sum
 
-	// // determine scaling factor -- sum of exp(each val - max)
-	// scale := 0.0
-	// for _, x := range values {
-	// 	scale += math.Exp(x - max)
-	// }
+	for _, row := range denseToRows(result) {
+		max := -math.MaxFloat64
+		for _, x := range row {
+			if x > max {
+				max = x
+			}
+		}
 
-	// for i, x := range values {
-	// 	result[i] = math.Exp(x-max) / scale
-	// }
+		// // determine scaling factor -- sum of exp(each val - max)
+		scale := 0.0
+		for _, x := range row {
+			scale += math.Exp(x - max)
+		}
 
-	return &result // now scaled so that xi sum to 1.0
+		for i, x := range row {
+			row[i] = math.Exp(x-max) / scale
+		}
+	}
+
+	return result // now scaled so that xi sum to 1.0
+}
+
+func denseToRows(tt *t.Dense) [][]float64 {
+	s := tt.Shape()
+	rowCount := s[0]
+	colCount := s[1]
+	data := tt.Data().([]float64)
+
+	results := make([][]float64, rowCount)
+	for i := 0; i < rowCount; i++ {
+		offset := i * colCount
+		results[i] = data[offset : offset+colCount]
+	}
+	return results
 }

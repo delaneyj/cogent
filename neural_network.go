@@ -60,16 +60,8 @@ type LayerData struct {
 func (l *LayerData) reset(weightRange float64) {
 	rnd := func(x t.Tensor, scaler float64) {
 		data := x.Data().([]float64)
-		s := x.Shape()
-		rowCount := s[0]
-		colCount := s[1]
 
 		for i := range data {
-			if i%colCount == rowCount {
-				data[i] = 1
-				continue
-			}
-
 			lo := -scaler * weightRange
 			hi := scaler * weightRange
 			data[i] = (hi-lo)*rand.Float64() + lo
@@ -138,20 +130,31 @@ func (nn *NeuralNetwork) reset(weightRange float64) {
 	nn.Best.Loss = math.MaxFloat64
 }
 
-func cloneAndExpandColumn(x *t.Dense) *t.Dense {
-	s := x.Shape()
-	rowCount := s[0]
-	colCount := s[1]
-	var y t.Dense
-	err := x.CopyTo(&y)
-	checkErr(err)
-	y.Reshape(rowCount, colCount+1)
+func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
+	s := initialT.Shape()
+	initialRowCount := s[0]
+	initialColCount := s[1]
+	expandedColCount := initialColCount + 1
+	expandedT := t.New(
+		t.Of(Float),
+		t.WithShape(initialRowCount, expandedColCount),
+	)
 
-	data := y.Data().([]float64)
-	for i := colCount; i < rowCount*colCount; i += colCount {
-		data[i] = 1
+	initial := initialT.Data().([]float64)
+	expanded := expandedT.Data().([]float64)
+
+	intialIndex := 0
+	for i := range expanded {
+		if i%expandedColCount == expandedColCount-1 {
+			expanded[i] = 1
+			continue
+		}
+		expanded[i] = initial[intialIndex]
+		intialIndex++
 	}
-	return &y
+
+	log.Printf("was initially\n%+v. But now is\n%+v", initialT, expandedT)
+	return expandedT
 }
 
 //Activate feeds forward through the network
@@ -159,10 +162,12 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 	inputs := cloneAndExpandColumn(initialInputs)
 
 	var activated *t.Dense
-	for _, l := range nn.Layers {
-		outputs := must(inputs.Mul(l.WeightsAndBiases))
+	for i, l := range nn.Layers {
+		log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
+		outputs := must(inputs.MatMul(l.WeightsAndBiases))
 		activationFunc := activations[l.Activation]
 		activated = activationFunc(outputs)
+		log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
 		inputs = cloneAndExpandColumn(activated)
 	}
 	return activated
@@ -170,6 +175,7 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 
 //ClassificationAccuracy percentage correct using winner-takes all
 func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
+	log.Fatal("oh noes")
 	// maxIndex := func(s []float64) int {
 	// 	// index of largest value
 	// 	bigIndex := 0

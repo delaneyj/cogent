@@ -23,13 +23,13 @@ func basicMathConfig() MultiSwarmConfiguration {
 	}
 
 	msc := MultiSwarmConfiguration{
-		SwarmCount: 5,
+		SwarmCount: 1,
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
 			Loss:         Cross,
 			InputCount:   2,
 			LayerConfigs: make([]LayerConfig, deep+1),
 		},
-		ParticleCount: 10,
+		ParticleCount: 1,
 	}
 
 	i := 0

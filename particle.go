@@ -48,13 +48,13 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 
 	rowCount := nnConfig.InputCount + 1
 	colCount := 0
-	lastLayerIndex := len(nnConfig.LayerConfigs) - 1
+	// lastLayerIndex := len(nnConfig.LayerConfigs) - 1
 
 	for i, layerConfig := range nnConfig.LayerConfigs {
 		colCount = layerConfig.NodeCount
-		if i != lastLayerIndex {
-			colCount++
-		}
+		// if i != lastLayerIndex {
+		// 	colCount++
+		// }
 
 		l := LayerData{
 			NodeCount: layerConfig.NodeCount,
@@ -68,9 +68,12 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 			),
 			Activation: layerConfig.Activation,
 		}
+
 		l.reset(weightRange)
+
+		log.Printf("Weights Tensor: %+v", l.WeightsAndBiases)
 		nn.Layers[i] = l
-		rowCount = colCount
+		rowCount = colCount + 1
 	}
 	nn.Best = Position{
 		Loss:   math.MaxFloat64,
@@ -338,6 +341,8 @@ func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
 			),
 		}
 
+		// log.Printf("ti%+v to%+v", test.Inputs, test.Outputs)
+
 		tt[i] = &testTrainSet{
 			train: &train,
 			test:  &test,
@@ -426,10 +431,12 @@ func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight flo
 	loss := p.fn(dataset.Outputs, actualOutputs)
 
 	l2Regularization := 0.0
+	count := 0.0
 	for _, w := range p.nn.weights() {
 		l2Regularization += w * w
+		count++
 	}
-	l2Regularization /= float64(p.nn.weightsAndBiasesCount())
+	l2Regularization /= count
 	l2Regularization *= ridgeRegressionWeight
 
 	log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
