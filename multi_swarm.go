@@ -5,14 +5,14 @@ import (
 	"log"
 	"math"
 	"sync"
-	"time"
 
 	t "gorgonia.org/tensor"
 )
 
 const (
-	globalKey      = "global"
-	swarmKeyFormat = "swarm_%d"
+	globalKey       = "global"
+	bestGlobalNNKey = "globalNN"
+	swarmKeyFormat  = "swarm_%d"
 )
 
 //MultiSwarm x
@@ -86,7 +86,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 	pti := particleTrainingInfo{
 		Dataset:               dataset,
 		MaxIterations:         ms.trainingConfig.MaxIterations,
-		MaxAccuracy:           ms.trainingConfig.TargetAccuracy,
+		TargetAccuracy:        ms.trainingConfig.TargetAccuracy,
 		InertialWeight:        ms.trainingConfig.InertialWeight,
 		CognitiveWeight:       ms.trainingConfig.CognitiveWeight,
 		SocialWeight:          ms.trainingConfig.SocialWeight,
@@ -96,39 +96,54 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 		KFolds:                ms.trainingConfig.KFolds,
+		StoreGlobalBest:       ms.trainingConfig.StoreGlobalBest,
 	}
 
+loop:
 	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
-		start := time.Now()
+		// start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
-		wg := &sync.WaitGroup{}
-		wg.Add(ms.particleCount)
-		for _, s := range ms.swarms {
+		// wg := &sync.WaitGroup{}
+		// wg.Add(ms.particleCount)
+		chs := make([]chan float64, ms.particleCount)
+		for i := range chs {
+			chs[i] = make(chan float64)
+		}
+
+		chIndex := 0
+		for i, s := range ms.swarms {
 			for _, p := range s.particles {
-				p.train(pti, ttSets, wg)
+				ch := chs[chIndex]
+				go p.train(i, pti, ttSets, ch)
+				chIndex++
 			}
 		}
-		wg.Wait()
-		log.Printf("iteration %d took %s.", i, time.Since(start))
+
+		for _, ch := range chs {
+			testAcc := <-ch
+			// wg.Done()
+			if testAcc >= ms.trainingConfig.TargetAccuracy {
+				break loop
+			}
+		}
+		// wg.Wait()
+		// log.Printf("iteration %d took %s.", i, time.Since(start))
 	}
 }
 
 //Best x
 func (ms *MultiSwarm) Best() *NeuralNetwork {
-	var best *NeuralNetwork
-	for _, s := range ms.swarms {
-		for _, p := range s.particles {
-			if best == nil || p.nn.Best.Loss < best.Best.Loss {
-				best = p.nn
-			}
-		}
-	}
-	return best
+	res, ok := ms.blackboard.Load(bestGlobalNNKey)
+	checkOk(ok)
+	bestGlobal := res.(NeuralNetwork)
+	return &bestGlobal
 }
 
 //ClassificationAccuracy x
 func (ms *MultiSwarm) ClassificationAccuracy(testData *Dataset) float64 {
-	return ms.Best().ClassificationAccuracy(testData)
+	b := ms.Best()
+	acc := b.ClassificationAccuracy(testData)
+	return acc
 }
 
 //Predict x

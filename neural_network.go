@@ -1,6 +1,8 @@
 package cogent
 
 import (
+	"bytes"
+	"encoding/gob"
 	"log"
 	"math"
 	"math/rand"
@@ -16,9 +18,9 @@ var (
 		CognitiveWeight:       1.49445,
 		SocialWeight:          1.49445,
 		GlobalWeight:          0.3645,
-		MaxIterations:         700,
-		TargetAccuracy:        0.000001,
-		WeightRange:           100,
+		MaxIterations:         500,
+		TargetAccuracy:        1,
+		WeightRange:           3,
 		WeightDecayRate:       0.01,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
@@ -52,8 +54,8 @@ type LayerConfig struct {
 //LayerData x
 type LayerData struct {
 	NodeCount        int
-	WeightsAndBiases *t.Dense
-	Velocities       *t.Dense
+	WeightsAndBiases t.Dense
+	Velocities       t.Dense
 	Activation       ActivationMode
 }
 
@@ -69,8 +71,8 @@ func (l *LayerData) reset(weightRange float64) {
 		// log.Printf("%+v", x)
 	}
 
-	rnd(l.WeightsAndBiases, 1)
-	rnd(l.Velocities, 0.1)
+	rnd(&l.WeightsAndBiases, 1)
+	rnd(&l.Velocities, 0.1)
 }
 
 func (nn *NeuralNetwork) weightsAndBiasesCount() int {
@@ -153,7 +155,7 @@ func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
 		intialIndex++
 	}
 
-	log.Printf("was initially\n%+v. But now is\n%+v", initialT, expandedT)
+	// log.Printf("was initially\n%+v. But now is\n%+v", initialT, expandedT)
 	return expandedT
 }
 
@@ -162,12 +164,12 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 	inputs := cloneAndExpandColumn(initialInputs)
 
 	var activated *t.Dense
-	for i, l := range nn.Layers {
-		log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
-		outputs := must(inputs.MatMul(l.WeightsAndBiases))
+	for _, l := range nn.Layers {
+		// log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
+		outputs := must(inputs.MatMul(&l.WeightsAndBiases))
 		activationFunc := activations[l.Activation]
 		activated = activationFunc(outputs)
-		log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
+		// log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
 		inputs = cloneAndExpandColumn(activated)
 	}
 	return activated
@@ -175,67 +177,70 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 
 //ClassificationAccuracy percentage correct using winner-takes all
 func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
-	log.Fatal("oh noes")
-	// maxIndex := func(s []float64) int {
-	// 	// index of largest value
-	// 	bigIndex := 0
-	// 	biggestVal := s[0]
-	// 	for i, x := range s {
-	// 		if x > biggestVal {
-	// 			biggestVal = x
-	// 			bigIndex = i
-	// 		}
-	// 	}
-	// 	return bigIndex
-	// }
+	rowCount := testData.rowCount()
+	colCount := testData.outputColCount()
 
 	correctCount := 0.0
-	// splitIndex := len(testData.Outputs) / 2
-	// wg := &sync.WaitGroup{}
-	// wg.Add(len(testData))
-	// mu := &sync.Mutex{}
+	splitIndex := colCount / 2
+	shouldSplit := nn.Layers[len(nn.Layers)-1].Activation == SplitSoftmax
 
-	// lastLayer := nn.Layers[len(nn.Layers)-1]
-	// shouldSplit := lastLayer.Activation == SplitSoftmax
+	eT := testData.Outputs
+	expectedOutput := eT.Data().([]float64)
+	aT := nn.Activate(testData.Inputs)
+	actualOuputs := aT.Data().([]float64)
+	log.Printf("%+v%+v", eT, aT)
 
-	// for _, d := range testData {
-	// 	go func(d *Data) {
-	// 		expectedOutput := d.Outputs
-	// 		actualOuputs := nn.Activate(d.Inputs)
+	for i := 0; i < rowCount; i++ {
+		start := i * colCount
+		end := start + colCount
 
-	// 		if shouldSplit {
-	// 			correctness := func(e, a []float64) float64 {
-	// 				eIndex := maxIndex(e)
-	// 				aIndex := maxIndex(a)
-	// 				delta := math.Abs(float64(eIndex - aIndex))
-	// 				x := 0.5 * math.Pow(0.5, delta)
-	// 				return x
-	// 			}
+		expected := expectedOutput[start:end]
+		actual := actualOuputs[start:end]
+		if shouldSplit {
+			correctness := func(e, a []float64) float64 {
+				eIndex := argmax(e)
+				aIndex := argmax(a)
+				delta := math.Abs(float64(eIndex - aIndex))
+				x := 0.5 * math.Pow(0.5, delta)
+				return x
+			}
 
-	// 			lC := correctness(expectedOutput[:splitIndex], actualOuputs[:splitIndex])
-	// 			rC := correctness(expectedOutput[splitIndex:], actualOuputs[splitIndex:])
-	// 			mu.Lock()
-	// 			correctCount += (lC + rC)
-	// 			mu.Unlock()
-	// 		} else {
-	// 			expectedOutput := d.Outputs
-	// 			actualOuputs := nn.Activate(d.Inputs...)
-	// 			i := maxIndex(actualOuputs)
+			lC := correctness(expected[:splitIndex], actual[:splitIndex])
+			rC := correctness(expected[splitIndex:], actual[splitIndex:])
+			correctCount += (lC + rC)
+		} else {
+			eI := argmax(expected)
+			aI := argmax(actual)
 
-	// 			if expectedOutput[i] == 1 {
-	// 				mu.Lock()
-	// 				correctCount++
-	// 				mu.Unlock()
-	// 			}
-	// 		}
+			if eI == aI {
+				correctCount++
+			}
+		}
+	}
 
-	// 		wg.Done()
-	// 	}(d)
-	// }
+	ratio := correctCount / float64(rowCount)
+	return ratio
+}
 
-	// wg.Wait()
+//Marshal x
+func (nn *NeuralNetwork) Marshal() []byte {
+	var buf bytes.Buffer
+	e := gob.NewEncoder(&buf)
+	err := e.Encode(nn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return buf.Bytes()
+}
 
-	return float64(correctCount) / float64(testData.rowCount())
+//Unmarshal x
+func (nn *NeuralNetwork) Unmarshal(buf []byte) {
+	r := bytes.NewReader(buf)
+	d := gob.NewDecoder(r)
+	err := d.Decode(nn)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func checkErr(err error) {
@@ -243,4 +248,17 @@ func checkErr(err error) {
 		log.Print(err)
 		runtime.Breakpoint()
 	}
+}
+
+func argmax(a []float64) int {
+	maxVal := -math.MaxFloat64
+	maxInt := -1
+
+	for i := range a {
+		if a[i] > maxVal {
+			maxVal = a[i]
+			maxInt = i
+		}
+	}
+	return maxInt
 }

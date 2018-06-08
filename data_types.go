@@ -76,6 +76,7 @@ type TrainingConfiguration struct {
 	ProbablityOfDeath     float64
 	RidgeRegressionWeight float64
 	KFolds                int
+	StoreGlobalBest       bool
 }
 
 //MultiSwarmConfiguration x
