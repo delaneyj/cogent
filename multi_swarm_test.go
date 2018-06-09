@@ -12,7 +12,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 	deep := 1
 
 	lc := LayerConfig{
-		NodeCount:  5,
+		NodeCount:  6,
 		Activation: ReLU,
 	}
 
@@ -27,8 +27,8 @@ func basicMathConfig() MultiSwarmConfiguration {
 			InputCount:   2,
 			LayerConfigs: make([]LayerConfig, deep+1),
 		},
-		ParticleCount: 16,
-		SwarmCount:    16,
+		ParticleCount: 4,
+		SwarmCount:    2,
 	}
 
 	i := 0
@@ -41,7 +41,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 }
 
 func basicMathTest(tt *testing.T, data Data) {
-	tt.Parallel()
+	// tt.Parallel()
 	dataset := DataToTensorDataset(data)
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
 	s.Train(dataset)
@@ -153,21 +153,17 @@ func Test_Flowers(tt *testing.T) {
 			InputCount: 4,
 			LayerConfigs: []LayerConfig{
 				{
-					NodeCount:  10,
-					Activation: LeakyReLU,
-				},
-				{
-					NodeCount:  3,
-					Activation: Softmax,
+					NodeCount:  6,
+					Activation: ReLU,
 				},
 			},
 		},
-		ParticleCount: 16,
-		SwarmCount:    4,
+		ParticleCount: 4,
+		SwarmCount:    2,
 	}
 	tc := DefaultTrainingConfig
 	tc.MaxIterations = 500
-	tc.WeightRange = 3
+	tc.WeightRange = 10
 
 	s := NewMultiSwarm(config, tc)
 

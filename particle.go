@@ -96,6 +96,7 @@ type particleTrainingInfo struct {
 	SocialWeight          float64
 	GlobalWeight          float64
 	WeightRange           float64
+	WeightDecayRate       float64
 	DeathRate             float64
 	RidgeRegressionWeight float64
 	KFolds                int
@@ -154,8 +155,15 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 				bestGlobalDelta := must(bestGlobal.Sub(currentLocal))
 				globalPositionFactor := must(must(globalRandomness.MulScalar(pti.GlobalWeight, true)).Mul(bestGlobalDelta))
 
-				revisedVelocity := must(must(must(oldVelocityFactor.Add(localPositionFactor)).Add(swarmPositionFactor)).Add(globalPositionFactor))
-
+				revisedVelocity := must(
+					must(
+						must(
+							must(
+								oldVelocityFactor.Add(localPositionFactor),
+							).Add(swarmPositionFactor),
+						).Add(globalPositionFactor),
+					).AddScalar(1-pti.WeightDecayRate, true),
+				)
 				// log.Printf("Velocities were\n%+v\nNow\n%+v", l.Velocities, revisedVelocity)
 				revisedVelocity.CopyTo(l.Velocities)
 			}
@@ -385,6 +393,7 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 	expected := dataset.Outputs
 	actual := p.nn.Activate(dataset.Inputs)
 
+	log.Fatalf("%+v %+v", expected, actual)
 	diff := must(actual.Sub(expected))
 	backing := diff.Data().([]float64)
 

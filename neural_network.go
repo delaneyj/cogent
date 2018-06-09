@@ -21,6 +21,7 @@ var (
 		MaxIterations:         500,
 		TargetAccuracy:        1,
 		WeightRange:           10,
+		WeightDecayRate:       0.001,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
 		KFolds:                10,

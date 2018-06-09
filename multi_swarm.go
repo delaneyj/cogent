@@ -93,6 +93,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 		SocialWeight:          ms.trainingConfig.SocialWeight,
 		GlobalWeight:          ms.trainingConfig.GlobalWeight,
 		WeightRange:           ms.trainingConfig.WeightRange,
+		WeightDecayRate:       ms.trainingConfig.WeightDecayRate,
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 		KFolds:                ms.trainingConfig.KFolds,
@@ -121,7 +122,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		// log.Printf("iteration %d took %s. t:%0.2f", i, time.Since(start), 100*bestAcc)
+		// log.Printf("iteration %d took %s.", i, time.Since(start))
 
 		if bestAcc >= pti.TargetAccuracy {
 			ms.predictor = nn

@@ -8,8 +8,6 @@ import (
 	t "gorgonia.org/tensor"
 )
 
-const epsilon = 7.0/3 - 4.0/3 - 1.0
-
 //LossFns x
 var LossFns = map[LossMode]lossFn{
 	Squared:                              squaredLoss,
@@ -38,7 +36,7 @@ func squaredLoss(want, actual *t.Dense) float64 {
 
 func crossLoss(expected, actual *t.Dense) float64 {
 	sum := 0.0
-
+	epsilon := float64(7.)/3 - float64(4.)/3 - float64(1.)
 	ar := denseToRows(actual)
 	er := denseToRows(expected)
 	for i, actualRow := range ar {
@@ -47,17 +45,17 @@ func crossLoss(expected, actual *t.Dense) float64 {
 		for i, e := range expectedRow {
 			a := actualRow[i]
 
-			if a == 0 {
-				a = epsilon
+			p := math.Max(epsilon, math.Min(a, 1-epsilon))
+			var x float64
+			if e == 1 {
+				x = -math.Log(p)
+			} else {
+				x = -math.Log(1 - p)
 			}
-
-			if x := -math.Log(a) * e; !math.IsNaN(x) {
-				sum += x
-			}
-
-			if math.IsInf(sum, 0) || sum < 0 {
+			if math.IsInf(x, 0) || x < 0 {
 				runtime.Breakpoint()
 			}
+			sum += x
 		}
 	}
 
