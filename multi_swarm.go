@@ -23,6 +23,8 @@ type MultiSwarm struct {
 	swarms         []*swarm
 	trainingConfig TrainingConfiguration
 	dataset        *Dataset
+
+	predictor *NeuralNetwork
 }
 
 type swarm struct {
@@ -86,59 +88,51 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 
 	pti := particleTrainingInfo{
 		Dataset:               dataset,
-		MaxIterations:         ms.trainingConfig.MaxIterations,
 		TargetAccuracy:        ms.trainingConfig.TargetAccuracy,
 		InertialWeight:        ms.trainingConfig.InertialWeight,
 		CognitiveWeight:       ms.trainingConfig.CognitiveWeight,
 		SocialWeight:          ms.trainingConfig.SocialWeight,
 		GlobalWeight:          ms.trainingConfig.GlobalWeight,
 		WeightRange:           ms.trainingConfig.WeightRange,
-		WeightDecayRate:       ms.trainingConfig.WeightDecayRate,
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 		KFolds:                ms.trainingConfig.KFolds,
 		StoreGlobalBest:       ms.trainingConfig.StoreGlobalBest,
 	}
 
-	bestAcc := -math.MaxFloat64
-	notBetterAccIterations := 0
-loop:
-	for notBetterAccIterations < ms.trainingConfig.MaxIterations {
+	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
 		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
-		// wg := &sync.WaitGroup{}
-		// wg.Add(ms.particleCount)
-
-		foundBetter := false
 		for i, s := range ms.swarms {
 			for _, p := range s.particles {
-				testAcc := p.train(i, pti, ttSets)
-				if testAcc >= ms.trainingConfig.TargetAccuracy {
-					break loop
-				}
-
-				if testAcc > bestAcc {
-					bestAcc = testAcc
-					foundBetter = true
-				}
-
+				p.train(i, pti, ttSets)
 			}
 		}
-		// wg.Wait()
-		b := ms.Best()
-		log.Printf("iteration %d took %s. l:%f", notBetterAccIterations, time.Since(start), b.Best.Loss)
 
-		if foundBetter {
-			notBetterAccIterations = 0
-		} else {
-			notBetterAccIterations++
+		var nn *NeuralNetwork
+		for _, s := range ms.swarms {
+			for _, p := range s.particles {
+				if nn == nil || nn.Best.Loss < nn.Best.Loss {
+					nn = p.nn
+				}
+			}
 		}
+		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
+		log.Printf("iteration %d took %s. t:%0.2f", i, time.Since(start), 100*bestAcc)
 
+		if bestAcc >= pti.TargetAccuracy {
+			ms.predictor = nn
+			break
+		}
 	}
 }
 
 //Best x
-func (ms *MultiSwarm) Best() *NeuralNetwork {
+func (ms *MultiSwarm) predictNN() *NeuralNetwork {
+	if ms.predictor != nil {
+		return ms.predictor
+	}
+
 	res, ok := ms.blackboard.Load(bestGlobalNNKey)
 	checkOk(ok)
 	bestGlobal := res.(NeuralNetwork)
@@ -147,12 +141,12 @@ func (ms *MultiSwarm) Best() *NeuralNetwork {
 
 //ClassificationAccuracy x
 func (ms *MultiSwarm) ClassificationAccuracy(testData *Dataset) float64 {
-	b := ms.Best()
-	acc := b.ClassificationAccuracy(testData)
+	ms.predictNN()
+	acc := ms.predictNN().ClassificationAccuracy(testData)
 	return acc
 }
 
 //Predict x
 func (ms *MultiSwarm) Predict(inputs *t.Dense) *t.Dense {
-	return ms.Best().Activate(inputs)
+	return ms.predictNN().Activate(inputs)
 }

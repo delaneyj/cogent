@@ -84,7 +84,6 @@ type TrainingConfiguration struct {
 	MaxIterations         int
 	TargetAccuracy        float64
 	WeightRange           float64
-	WeightDecayRate       float64
 	ProbablityOfDeath     float64
 	RidgeRegressionWeight float64
 	KFolds                int

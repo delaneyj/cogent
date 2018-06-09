@@ -3,7 +3,6 @@ package cogent
 import (
 	"log"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	t "gorgonia.org/tensor"
@@ -41,36 +40,22 @@ func basicMathConfig() MultiSwarmConfiguration {
 	return msc
 }
 
-func Test_XOR(tt *testing.T) {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+func basicMathTest(tt *testing.T, label string, data Data) {
 	tt.Parallel()
-	start := time.Now()
-	examples := &Dataset{
-		Inputs: t.New(
-			t.WithShape(4, 2),
-			t.WithBacking([]float64{
-				0, 1,
-				1, 0,
-				0, 0,
-				1, 1,
-			}),
-		),
-		Outputs: t.New(
-			t.WithShape(4, 2),
-			t.WithBacking([]float64{
-				1, 0,
-				1, 0,
-				0, 1,
-				0, 1,
-			}),
-		),
-	}
-
+	dataset := DataToTensorDataset(data)
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(examples)
-	accuracy := s.ClassificationAccuracy(examples)
+	s.Train(dataset)
+	accuracy := s.ClassificationAccuracy(dataset)
 	assert.Equal(tt, 1.0, accuracy)
-	log.Print("XOR ", time.Since(start))
+}
+
+func Test_XOR(tt *testing.T) {
+	basicMathTest(tt, "XOR", Data{
+		{Inputs: []float64{0, 0}, Outputs: []float64{0, 1}},
+		{Inputs: []float64{0, 1}, Outputs: []float64{1, 0}},
+		{Inputs: []float64{1, 0}, Outputs: []float64{1, 0}},
+		{Inputs: []float64{1, 1}, Outputs: []float64{0, 1}},
+	})
 }
 
 // func Test_AND(t *testing.T) {
@@ -447,3 +432,37 @@ func Test_Flowers(tt *testing.T) {
 // 		}
 // 	}
 // }
+
+type Data []struct {
+	Inputs  []float64
+	Outputs []float64
+}
+
+func DataToTensorDataset(data Data) *Dataset {
+	rows := len(data)
+	iColCount := len(data[0].Inputs)
+	oColCount := len(data[0].Outputs)
+	dataset := &Dataset{
+		Inputs: t.New(
+			t.Of(Float),
+			t.WithShape(rows, iColCount),
+		),
+		Outputs: t.New(
+			t.Of(Float),
+			t.WithShape(rows, oColCount),
+		),
+	}
+	inputsBacking := dataset.Inputs.Data().([]float64)
+	outputsBacking := dataset.Outputs.Data().([]float64)
+
+	i, o := 0, 0
+	for _, x := range data {
+		copy(inputsBacking[i:], x.Inputs)
+		i += len(x.Outputs)
+
+		copy(outputsBacking[o:], x.Outputs)
+		o += len(x.Outputs)
+	}
+
+	return dataset
+}
