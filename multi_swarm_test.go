@@ -155,12 +155,13 @@ func Test_Flowers(tt *testing.T) {
 				},
 			},
 		},
-		ParticleCount: 4,
-		SwarmCount:    2,
+		ParticleCount: 8,
+		SwarmCount:    8,
 	}
 	tc := DefaultTrainingConfig
-	tc.MaxIterations = 2000
+	tc.MaxIterations = 5000
 	tc.WeightRange = 10
+	tc.ProbablityOfDeath = 0.0001
 
 	s := NewMultiSwarm(config, tc)
 

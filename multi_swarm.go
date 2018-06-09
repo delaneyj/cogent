@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	t "gorgonia.org/tensor"
 )
@@ -99,9 +100,10 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 		StoreGlobalBest:       ms.trainingConfig.StoreGlobalBest,
 	}
 
-	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
+	iterations, avgTime := 0, time.Duration(0)
+	for ; iterations < ms.trainingConfig.MaxIterations; iterations++ {
 		// log.Printf("iteration %d started.", i)
-		// start := time.Now()
+		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 
 		wg := &sync.WaitGroup{}
@@ -109,9 +111,9 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 		for _, s := range ms.swarms {
 			for _, p := range s.particles {
 				if shouldMultithread {
-					go p.train(wg, i, pti, ttSets)
+					go p.train(wg, iterations, pti, ttSets)
 				} else {
-					p.train(wg, i, pti, ttSets)
+					p.train(wg, iterations, pti, ttSets)
 				}
 			}
 		}
@@ -127,12 +129,15 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
 		// log.Printf("iteration %d took %s.", i, time.Since(start))
+		avgTime += time.Since(start)
 
 		if bestAcc >= pti.TargetAccuracy {
 			ms.predictor = nn
 			break
 		}
 	}
+
+	log.Printf("Did %d iterations taking on average %s.", iterations, avgTime/time.Duration(iterations+1))
 }
 
 //Best x

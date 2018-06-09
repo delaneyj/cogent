@@ -211,16 +211,18 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 			err = f.Close()
 			checkErr(err)
 		}
-	}
+	} else {
+		//The best don't die
+		deathChance := rand.Float64()
+		if deathChance < pti.DeathRate {
+			// log.Printf("<%d:%d:%d> died!", iteration, p.swarmID, p.id)
+			p.nn.reset(pti.WeightRange)
+			index := rand.Intn(len(ttSets))
 
-	deathChance := rand.Float64()
-	if deathChance < pti.DeathRate {
-		// log.Printf("<%d:%d:%d> died!", iteration, p.swarmID, p.id)
-		p.nn.reset(pti.WeightRange)
-		index := rand.Intn(len(ttSets))
+			loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
+			p.setBest(iteration, loss, pti.RidgeRegressionWeight)
+		}
 
-		loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
-		p.setBest(iteration, loss, pti.RidgeRegressionWeight)
 	}
 
 	wg.Done()
