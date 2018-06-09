@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	t "gorgonia.org/tensor"
 )
@@ -101,7 +102,8 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 	}
 
 	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
-		// start := time.Now()
+		log.Printf("iteration %d started.", i)
+		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 
 		wg := &sync.WaitGroup{}
@@ -126,7 +128,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		// log.Printf("iteration %d took %s.", i, time.Since(start))
+		log.Printf("iteration %d took %s.", i, time.Since(start))
 
 		if bestAcc >= pti.TargetAccuracy {
 			ms.predictor = nn

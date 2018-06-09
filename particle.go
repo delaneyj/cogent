@@ -198,7 +198,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		rmse := p.rmse(pti.Dataset)
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
 		filename := fmt.Sprintf("RMSE_%0.8f_KFX_%0.8f_TACC%0.2f.nn", rmse, kfoldLossAvg, 100*testAcc)
-		log.Printf("%d <%d:%d> New global best found", iteration, p.swarmID, p.id)
+		log.Printf("Iteration:%d <%d:%d> New global best found", iteration, p.swarmID, p.id)
 		log.Print(filename)
 		if pti.StoreGlobalBest {
 			f, err := os.Create(filename)
@@ -393,7 +393,7 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 	expected := dataset.Outputs
 	actual := p.nn.Activate(dataset.Inputs)
 
-	log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
+	// log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
 	diff := must(actual.Sub(expected))
 	backing := diff.Data().([]float64)
 
@@ -407,8 +407,10 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 }
 
 func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
-	actualOutputs := p.nn.Activate(dataset.Inputs)
-	loss := p.fn(dataset.Outputs, actualOutputs)
+	expected := dataset.Outputs
+	actual := p.nn.Activate(dataset.Inputs)
+	// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
+	loss := p.fn(expected, actual)
 
 	l2Regularization := 0.0
 	count := 0.0

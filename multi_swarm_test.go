@@ -8,34 +8,25 @@ import (
 	t "gorgonia.org/tensor"
 )
 
-func basicMathConfig() MultiSwarmConfiguration {
-	deep := 1
-
-	lc := LayerConfig{
-		NodeCount:  6,
-		Activation: ReLU,
-	}
-
-	sm := LayerConfig{
-		NodeCount:  2,
-		Activation: Softmax,
-	}
-
+func basicMathConfig(data Data) MultiSwarmConfiguration {
 	msc := MultiSwarmConfiguration{
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
-			Loss:         Cross,
-			InputCount:   2,
-			LayerConfigs: make([]LayerConfig, deep+1),
+			Loss:       Cross,
+			InputCount: len(data[0].Inputs),
+			LayerConfigs: []LayerConfig{
+				LayerConfig{
+					NodeCount:  6,
+					Activation: ReLU,
+				},
+				LayerConfig{
+					NodeCount:  len(data[0].Outputs),
+					Activation: Softmax,
+				},
+			},
 		},
 		ParticleCount: 4,
 		SwarmCount:    2,
 	}
-
-	i := 0
-	for ; i < deep; i++ {
-		msc.NeuralNetworkConfiguration.LayerConfigs[i] = lc
-	}
-	msc.NeuralNetworkConfiguration.LayerConfigs[i] = sm
 
 	return msc
 }
@@ -43,7 +34,7 @@ func basicMathConfig() MultiSwarmConfiguration {
 func basicMathTest(tt *testing.T, data Data) {
 	// tt.Parallel()
 	dataset := DataToTensorDataset(data)
-	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
+	s := NewMultiSwarm(basicMathConfig(data), DefaultTrainingConfig)
 	s.Train(dataset, false)
 	accuracy := s.ClassificationAccuracy(dataset)
 	assert.Equal(tt, 1.0, accuracy)
@@ -150,11 +141,15 @@ func Test_Flowers(tt *testing.T) {
 	config := MultiSwarmConfiguration{
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
 			Loss:       Cross,
-			InputCount: 4,
+			InputCount: len(data[0].Inputs),
 			LayerConfigs: []LayerConfig{
 				{
 					NodeCount:  6,
 					Activation: ReLU,
+				},
+				{
+					NodeCount:  len(data[0].Outputs),
+					Activation: Softmax,
 				},
 			},
 		},
