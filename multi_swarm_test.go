@@ -258,7 +258,7 @@ func DataToTensorDataset(data Data) *Dataset {
 	i, o := 0, 0
 	for _, x := range data {
 		copy(inputsBacking[i:], x.Inputs)
-		i += len(x.Outputs)
+		i += len(x.Inputs)
 
 		copy(outputsBacking[o:], x.Outputs)
 		o += len(x.Outputs)
