@@ -47,14 +47,14 @@ type LossMode int
 
 //LossModes
 const (
-	Squared LossMode = iota
-	Cross
-	Hinge
-	Exponential
-	HellingerDistance
-	KullbackLeiblerDivergence
-	GeneralizedKullbackLeiblerDivergence
-	ItakuraSaitoDistance
+	SquaredLoss LossMode = iota
+	CrossLoss
+	HingeLoss
+	ExponentialLoss
+	HellingerDistanceLoss
+	KullbackLeiblerDivergenceLoss
+	GeneralizedKullbackLeiblerDivergenceLoss
+	ItakuraSaitoDistanceLoss
 )
 
 //Position x

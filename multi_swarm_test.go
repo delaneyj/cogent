@@ -2,6 +2,7 @@ package cogent
 
 import (
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 func basicMathConfig(data Data) MultiSwarmConfiguration {
 	msc := MultiSwarmConfiguration{
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
-			Loss:       Cross,
+			Loss:       CrossLoss,
 			InputCount: len(data[0].Inputs),
 			LayerConfigs: []LayerConfig{
 				LayerConfig{
@@ -141,7 +142,7 @@ func Test_Flowers(tt *testing.T) {
 
 	config := MultiSwarmConfiguration{
 		NeuralNetworkConfiguration: NeuralNetworkConfiguration{
-			Loss:       Cross,
+			Loss:       CrossLoss,
 			InputCount: len(data[0].Inputs),
 			LayerConfigs: []LayerConfig{
 				{
@@ -171,65 +172,86 @@ func Test_Flowers(tt *testing.T) {
 	log.Print(time.Since(start))
 }
 
-// func Test_Error(t *testing.T) {
-// 	rand.Seed(1)
-// 	examples := [][]Data{
-// 		{
-// 			{[]float64{0.25, 0.75}, []float64{0.5, 0.5}},
-// 			{[]float64{0.75, 0.25}, []float64{0.5, 0.5}},
-// 			{[]float64{-0.5, 0.5}, []float64{0.5, 0.5}},
-// 			{[]float64{-0.5, 0.5}, []float64{0.5, 0.5}},
-// 			{[]float64{0.5, 0.5}, []float64{0.5, 0.5}},
-// 		},
-// 		{
-// 			{[]float64{0.45, 0.55}, []float64{0.5, 0.5}},
-// 			{[]float64{0.55, 0.45}, []float64{0.5, 0.5}},
-// 			{[]float64{0.525, 0.525}, []float64{0.5, 0.5}},
-// 			{[]float64{0.475, 0.475}, []float64{0.5, 0.5}},
-// 			{[]float64{0.5, 0.5}, []float64{0.5, 0.5}},
-// 		},
-// 	}
-// 	for _, tt := range []struct {
-// 		lt       LossType
-// 		expected []float64
-// 	}{
-// 		{SquaredLoss, []float64{
-// 			0.5, 0.5,
-// 		}},
-// 		{CrossLoss, []float64{
-// 			6.656104149082171, 9.299352568611798,
-// 		}},
-// 		{ExponentialLoss, []float64{
-// 			1.6485192252482843, 1.6487212484141207,
-// 		}},
-// 		{HellingerDistanceLoss, []float64{
-// 			0.48645931737868475, 0.45235979244565366,
-// 		}},
-// 		{KullbackLeiblerDivergenceLoss, []float64{
-// 			24.321514050007988, 18.123348049136933,
-// 		}},
-// 		{GeneralizedKullbackLeiblerDivergenceLoss, []float64{
-// 			53.42095928253063, 65.44891067419549,
-// 		}},
-// 		{ItakuraSaitoDistanceLoss, []float64{
-// 			1.5654031833143122e+06, 1487.9011553625498,
-// 		}},
-// 	} {
-// 		nn := newNeuralNetwork(&NeuralNetworkConfiguration{
-// 			LossType:   tt.lt,
-// 			InputCount: 2,
-// 			LayerConfigs: []LayerConfig{
-// 				{5, ReLU},
-// 				{2, Softmax},
-// 			},
-// 		})
-// 		for i, e := range examples {
-// 			expected := tt.expected[i]
-// 			actual := nn.calculateMeanLoss(e)
-// 			assert.Equal(t, expected, actual, string(tt.lt))
-// 		}
-// 	}
-// }
+func Test_Error(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	rand.Seed(1)
+	type sample struct {
+		predictedRow [][]float64
+		expectedRow  [][]float64
+	}
+
+	samples := []sample{
+		{
+			predictedRow: [][]float64{
+				{0.25, 0.75},
+				{0.75, 0.25},
+				{-0.5, 0.5},
+				{-0.5, 0.5},
+				{0.5, 0.5},
+			},
+			expectedRow: [][]float64{
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+			},
+		},
+		{
+			predictedRow: [][]float64{
+				{0.45, 0.55},
+				{0.55, 0.45},
+				{0.525, 0.525},
+				{0.475, 0.475},
+				{0.5, 0.5},
+			},
+			expectedRow: [][]float64{
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+				{0.5, 0.5},
+			},
+		},
+	}
+	for _, tt := range []struct {
+		lm   LossMode
+		loss []float64
+	}{
+		{SquaredLoss, []float64{
+			0.225, 0.0012500000000000007,
+		}},
+		{CrossLoss, []float64{
+			0.6120541589383125, 0.6956578737742694,
+		}},
+		{ExponentialLoss, []float64{
+			1.2523227161918644, 1.0012507815756226,
+		}},
+		{HellingerDistanceLoss, []float64{
+			0.15075123182539685, 0.011195253820219403,
+		}},
+		{KullbackLeiblerDivergenceLoss, []float64{
+			0.057536414490356166, 0.0025106932143239766,
+		}},
+		{GeneralizedKullbackLeiblerDivergenceLoss, []float64{
+			0.05753641449035616, 0.002510693214324,
+		}},
+		{ItakuraSaitoDistanceLoss, []float64{
+			0.7476321198163529, 0.020387987815337284,
+		}},
+	} {
+		lf := LossFns[tt.lm]
+
+		for i, sample := range samples {
+			expectedLoss := tt.loss[i]
+			actualLoss := lf(sample.expectedRow, sample.predictedRow)
+
+			assert.Equal(t, expectedLoss, actualLoss, string(tt.lm))
+		}
+	}
+}
 
 type Data []struct {
 	Inputs  []float64

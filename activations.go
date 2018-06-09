@@ -1,7 +1,6 @@
 package cogent
 
 import (
-	"log"
 	math "math"
 
 	t "gorgonia.org/tensor"
@@ -13,16 +12,15 @@ var activations = map[ActivationMode]activationFunction{
 	Identity: func(values *t.Dense) *t.Dense {
 		return values
 	},
-	BinaryStep: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	if x > 0 {
-		// 		result[i] = 1
-		// 	}
-		// }
-		// return result
+	BinaryStep: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			if x > 0 {
+				data[i] = 1
+			}
+		}
+		return activated
 	},
 	Sigmoid: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
@@ -32,48 +30,44 @@ var activations = map[ActivationMode]activationFunction{
 		}
 		return activated
 	},
-	HyperbolicTangent: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	switch {
-		// 	case x < -20:
-		// 		result[i] = -1
-		// 	case x > 20:
-		// 		result[i] = 1
-		// 	default:
-		// 		result[i] = math.Tanh(x)
-		// 	}
-		// }
-		// return result
+	HyperbolicTangent: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			switch {
+			case x < -20:
+				data[i] = -1
+			case x > 20:
+				data[i] = 1
+			default:
+				data[i] = math.Tanh(x)
+			}
+		}
+		return activated
 	},
-	ArcTan: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	result[i] = math.Atan(x)
-		// }
-		// return result
+	ArcTan: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			data[i] = math.Atan(x)
+		}
+		return activated
 	},
-	Softsign: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	result[i] = x / (1 + math.Abs(x))
-		// }
-		// return result
+	Softsign: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			data[i] = x / (1 + math.Abs(x))
+		}
+		return activated
 	},
-	ISRU: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	result[i] = x / math.Sqrt(1+x*x)
-		// }
-		// return result
+	ISRU: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			data[i] = x / math.Sqrt(1+x*x)
+		}
+		return activated
 	},
 	ReLU: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
@@ -97,165 +91,155 @@ var activations = map[ActivationMode]activationFunction{
 		}
 		return activated
 	},
-	ELU: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	if x < 0 {
-		// 		result[i] = math.Exp(x) - 1
-		// 	} else {
-		// 		result[i] = x
-		// 	}
-		// }
-		// return result
+	ELU: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			if x < 0 {
+				data[i] = math.Exp(x) - 1
+			} else {
+				data[i] = x
+			}
+		}
+		return activated
 	},
-	SELU: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// const lambda, alpha = 1.0507, 1.67326
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	y := lambda * x
-		// 	if x < 0 {
-		// 		y = lambda * alpha * (math.Exp(x) - 1)
-		// 	}
+	SELU: func(tt *t.Dense) *t.Dense {
+		const lambda, alpha = 1.0507, 1.67326
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			y := lambda * x
+			if x < 0 {
+				y = lambda * alpha * (math.Exp(x) - 1)
+			}
 
-		// 	if math.IsInf(y, 1) {
-		// 		y = math.MaxFloat64
-		// 	}
-		// 	result[i] = y
-		// }
-		// return result
+			if math.IsInf(y, 1) {
+				y = math.MaxFloat64
+			}
+			data[i] = y
+		}
+		return activated
 	},
-	SoftPlus: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	y := math.Log(1 + math.Exp(x))
-		// 	if math.IsInf(y, 1) {
-		// 		y = math.MaxFloat64
-		// 	}
-		// 	result[i] = y
-		// }
-		// return result
+	SoftPlus: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			y := math.Log(1 + math.Exp(x))
+			if math.IsInf(y, 1) {
+				y = math.MaxFloat64
+			}
+			data[i] = y
+		}
+		return activated
 	},
-	BentIdentity: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	y := (math.Sqrt(x*x+1)-1)/2 + x
-		// 	if math.IsInf(y, 1) {
-		// 		y = math.MaxFloat64
-		// 	}
-		// 	result[i] = y
-		// }
-		// return result
+	BentIdentity: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			y := (math.Sqrt(x*x+1)-1)/2 + x
+			if math.IsInf(y, 1) {
+				y = math.MaxFloat64
+			}
+			data[i] = y
+		}
+		return activated
 	},
-	Sinusoid: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	y := math.Sin(x)
-		// 	if math.IsInf(y, 1) {
-		// 		y = math.MaxFloat64
-		// 	} else if math.IsInf(y, -1) {
-		// 		y = -math.MaxFloat64
-		// 	}
-		// 	result[i] = y
-		// }
-		// return result
+	Sinusoid: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			y := math.Sin(x)
+			if math.IsInf(y, 1) {
+				y = math.MaxFloat64
+			} else if math.IsInf(y, -1) {
+				y = -math.MaxFloat64
+			}
+			data[i] = y
+		}
+		return activated
 	},
-	Sinc: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	var y float64
+	Sinc: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			y := 1.0
+			if x != 0 {
+				y = math.Sin(x) / x
+			}
 
-		// 	if x == 0 {
-		// 		y = 1
-		// 	} else {
-		// 		y = math.Sin(x) / x
-		// 	}
-
-		// 	if math.IsInf(y, 1) {
-		// 		y = math.MaxFloat64
-		// 	}
-		// 	result[i] = y
-		// }
-		// return result
+			if math.IsInf(y, 1) {
+				y = math.MaxFloat64
+			}
+			data[i] = y
+		}
+		return activated
 	},
-	Gaussian: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	result[i] = math.Exp(-(x * x))
-		// }
-		// return result
+	Gaussian: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			data[i] = math.Exp(-(x * x))
+		}
+		return activated
 	},
 
-	Softmax: softmax,
-
-	Maxout: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// max := -math.MaxFloat64
-		// for _, x := range values {
-		// 	max = math.Max(x, max)
-		// }
-
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	if x == max {
-		// 		result[i] = max
-		// 	}
-		// }
-		// return result
+	Softmax: func(tt *t.Dense) *t.Dense {
+		result := tt.Clone().(*t.Dense)
+		for _, row := range denseToRows(result) {
+			softmaxModifyRow(row)
+		}
+		return result
 	},
 
-	SplitSoftmax: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// offset := len(values) / 2
-		// result := make([]float64, len(values))
-		// copy(result[:offset], softmax(values[:offset]))
-		// copy(result[offset:], softmax(values[offset:]))
-		// return result // now scaled so that xi sum to 1.0
+	Maxout: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+
+		max := -math.MaxFloat64
+		for _, x := range data {
+			max = math.Max(x, max)
+		}
+
+		for i, x := range data {
+			if x == max {
+				data[i] = max
+			}
+		}
+		return activated
+	},
+
+	SplitSoftmax: func(tt *t.Dense) *t.Dense {
+		result := tt.Clone().(*t.Dense)
+		for _, row := range denseToRows(result) {
+			offset := len(row) / 2
+			softmaxModifyRow(row[:offset])
+			softmaxModifyRow(row[offset:])
+
+			softmaxModifyRow(row)
+		}
+		return result // now scaled so that xi sum to 1.0
 	},
 }
 
-func softmax(tt *t.Dense) *t.Dense {
-	result := tt.Clone().(*t.Dense)
+func softmaxModifyRow(row []float64) {
+	exps := make([]float64, len(row))
+	sum, max := 0.0, -math.MaxFloat64
 
-	// does all output nodes at once so scale doesn't have to be re-computed each time
-	// determine max output sum
-	for _, row := range denseToRows(result) {
-		exps := make([]float64, len(row))
-		sum, max := 0.0, -math.MaxFloat64
-
-		for _, x := range row {
-			if x > max {
-				max = x
-			}
-		}
-
-		for i, x := range row {
-			e := math.Exp(x - max)
-			exps[i] = e
-			sum += e
-		}
-
-		for i, e := range exps {
-			row[i] = e / sum
+	for _, x := range row {
+		if x > max {
+			max = x
 		}
 	}
 
-	return result // now scaled so that xi sum to 1.0
+	for i, x := range row {
+		e := math.Exp(x - max)
+		exps[i] = e
+		sum += e
+	}
+
+	for i, e := range exps {
+		row[i] = e / sum
+	}
 }
 
 func denseToRows(tt *t.Dense) [][]float64 {

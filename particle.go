@@ -24,7 +24,7 @@ type particle struct {
 //NewNeuralNetworkConfiguration x
 func NewNeuralNetworkConfiguration(inputCount int, lc ...LayerConfig) *NeuralNetworkConfiguration {
 	nnc := NeuralNetworkConfiguration{
-		Loss:         Cross,
+		Loss:         CrossLoss,
 		InputCount:   inputCount,
 		LayerConfigs: lc,
 	}
@@ -409,8 +409,8 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 }
 
 func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
-	expected := dataset.Outputs
-	actual := p.nn.Activate(dataset.Inputs)
+	expected := denseToRows(dataset.Outputs)
+	actual := denseToRows(p.nn.Activate(dataset.Inputs))
 	// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
 	loss := p.fn(expected, actual)
 	l2Regularization := 0.0
