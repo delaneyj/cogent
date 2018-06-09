@@ -24,14 +24,13 @@ var activations = map[ActivationMode]activationFunction{
 		// }
 		// return result
 	},
-	Sigmoid: func(values *t.Dense) *t.Dense {
-		log.Fatal("oh noes")
-		return nil
-		// result := make([]float64, len(values))
-		// for i, x := range values {
-		// 	result[i] = 1 / (1 + math.Exp(-x))
-		// }
-		// return result
+	Sigmoid: func(tt *t.Dense) *t.Dense {
+		activated := tt.Clone().(*t.Dense)
+		data := activated.Data().([]float64)
+		for i, x := range data {
+			data[i] = 1 / (1 + math.Exp(-x))
+		}
+		return activated
 	},
 	HyperbolicTangent: func(values *t.Dense) *t.Dense {
 		log.Fatal("oh noes")
@@ -235,23 +234,24 @@ func softmax(tt *t.Dense) *t.Dense {
 
 	// does all output nodes at once so scale doesn't have to be re-computed each time
 	// determine max output sum
-
 	for _, row := range denseToRows(result) {
-		max := -math.MaxFloat64
+		exps := make([]float64, len(row))
+		sum, max := 0.0, -math.MaxFloat64
+
 		for _, x := range row {
 			if x > max {
 				max = x
 			}
 		}
 
-		// // determine scaling factor -- sum of exp(each val - max)
-		scale := 0.0
-		for _, x := range row {
-			scale += math.Exp(x - max)
+		for i, x := range row {
+			e := math.Exp(x - max)
+			exps[i] = e
+			sum += e
 		}
 
-		for i, x := range row {
-			row[i] = math.Exp(x-max) / scale
+		for i, e := range exps {
+			row[i] = e / sum
 		}
 	}
 

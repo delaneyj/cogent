@@ -3,6 +3,7 @@ package cogent
 import (
 	"log"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	t "gorgonia.org/tensor"
@@ -144,8 +145,8 @@ func Test_Flowers(tt *testing.T) {
 			InputCount: len(data[0].Inputs),
 			LayerConfigs: []LayerConfig{
 				{
-					NodeCount:  6,
-					Activation: ReLU,
+					NodeCount:  16,
+					Activation: LeakyReLU,
 				},
 				{
 					NodeCount:  len(data[0].Outputs),
@@ -157,15 +158,17 @@ func Test_Flowers(tt *testing.T) {
 		SwarmCount:    2,
 	}
 	tc := DefaultTrainingConfig
-	tc.MaxIterations = 500
+	tc.MaxIterations = 2000
 	tc.WeightRange = 10
 
 	s := NewMultiSwarm(config, tc)
 
+	start := time.Now()
 	dataset := DataToTensorDataset(data)
-	s.Train(dataset, false)
+	s.Train(dataset, true)
 	accuracy := s.ClassificationAccuracy(dataset)
 	assert.Equal(tt, 1.0, accuracy)
+	log.Print(time.Since(start))
 }
 
 // func Test_Error(t *testing.T) {

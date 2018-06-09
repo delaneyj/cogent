@@ -158,13 +158,11 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 				revisedVelocity := must(
 					must(
 						must(
-							must(
-								oldVelocityFactor.Add(localPositionFactor),
-							).Add(swarmPositionFactor),
-						).Add(globalPositionFactor),
-					).AddScalar(1-pti.WeightDecayRate, true),
+							oldVelocityFactor.Add(localPositionFactor),
+						).Add(swarmPositionFactor),
+					).Add(globalPositionFactor),
 				)
-				// log.Printf("Velocities were\n%+v\nNow\n%+v", l.Velocities, revisedVelocity)
+				// log.Printf("Layer:%d velocities were\n%+v\nNow\n%+v", i, l.Velocities, revisedVelocity)
 				revisedVelocity.CopyTo(l.Velocities)
 			}
 
@@ -177,7 +175,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 					data[i] = clamped
 				}
 
-				// log.Printf("Weight were\n%+v\nNow\n%+v", l.WeightsAndBiases, revisedPosition)
+				// log.Printf("Layer:%d weights were\n%+v\nNow\n%+v", i, l.WeightsAndBiases, revisedPosition)
 				revisedPosition.CopyTo(l.WeightsAndBiases)
 			}
 
@@ -191,7 +189,11 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 	}
 	ttSetsWG.Wait()
 	kfoldLossAvg /= float64(len(ttSets))
-	// log.Printf("<%d:%d> took %s. %f", p.swarmID, p.id, time.Since(start), kfoldLossAvg)
+
+	// for _, l := range p.nn.Layers {
+	// 	log.Printf("%+v", l.WeightsAndBiases)
+	// }
+	// log.Printf("Iteration:%d <%d:%d> took %s. %f", iteration, p.swarmID, p.id, time.Since(start), kfoldLossAvg)
 
 	wasGlobalBest := p.setBest(iteration, kfoldLossAvg, pti.RidgeRegressionWeight)
 	if wasGlobalBest {
@@ -411,7 +413,6 @@ func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight flo
 	actual := p.nn.Activate(dataset.Inputs)
 	// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
 	loss := p.fn(expected, actual)
-
 	l2Regularization := 0.0
 	count := 0.0
 	for _, w := range p.nn.weights() {

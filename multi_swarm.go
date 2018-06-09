@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"sync"
-	"time"
 
 	t "gorgonia.org/tensor"
 )
@@ -94,7 +93,6 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 		SocialWeight:          ms.trainingConfig.SocialWeight,
 		GlobalWeight:          ms.trainingConfig.GlobalWeight,
 		WeightRange:           ms.trainingConfig.WeightRange,
-		WeightDecayRate:       ms.trainingConfig.WeightDecayRate,
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
 		KFolds:                ms.trainingConfig.KFolds,
@@ -102,13 +100,13 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 	}
 
 	for i := 0; i < ms.trainingConfig.MaxIterations; i++ {
-		log.Printf("iteration %d started.", i)
-		start := time.Now()
+		// log.Printf("iteration %d started.", i)
+		// start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 
 		wg := &sync.WaitGroup{}
 		wg.Add(ms.particleCount)
-		for i, s := range ms.swarms {
+		for _, s := range ms.swarms {
 			for _, p := range s.particles {
 				if shouldMultithread {
 					go p.train(wg, i, pti, ttSets)
@@ -128,7 +126,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		log.Printf("iteration %d took %s.", i, time.Since(start))
+		// log.Printf("iteration %d took %s.", i, time.Since(start))
 
 		if bestAcc >= pti.TargetAccuracy {
 			ms.predictor = nn

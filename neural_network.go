@@ -21,7 +21,6 @@ var (
 		MaxIterations:         500,
 		TargetAccuracy:        1,
 		WeightRange:           10,
-		WeightDecayRate:       0.001,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
 		KFolds:                10,
@@ -173,14 +172,18 @@ func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
 func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 	inputs := cloneAndExpandColumn(initialInputs)
 
+	lastLayerIndex := len(nn.Layers) - 1
 	var activated *t.Dense
-	for _, l := range nn.Layers {
+	for i, l := range nn.Layers {
 		// log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
 		outputs := must(inputs.MatMul(l.WeightsAndBiases))
 		activationFunc := activations[l.Activation]
 		activated = activationFunc(outputs)
 		// log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
-		inputs = cloneAndExpandColumn(activated)
+
+		if i != lastLayerIndex {
+			inputs = cloneAndExpandColumn(activated)
+		}
 	}
 	return activated
 }
@@ -194,18 +197,18 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
 	splitIndex := colCount / 2
 	shouldSplit := nn.Layers[len(nn.Layers)-1].Activation == SplitSoftmax
 
-	eT := testData.Outputs
-	expectedOutput := eT.Data().([]float64)
-	aT := nn.Activate(testData.Inputs)
-	actualOuputs := aT.Data().([]float64)
-	// log.Printf("%+v", aT)
+	expected := testData.Outputs
+	expectedBacking := expected.Data().([]float64)
+	actual := nn.Activate(testData.Inputs)
+	actualBacking := actual.Data().([]float64)
+	// log.Printf("Expected\n%+v\nActual\n%+v", expected, actual)
 
 	for i := 0; i < rowCount; i++ {
 		start := i * colCount
 		end := start + colCount
 
-		expected := expectedOutput[start:end]
-		actual := actualOuputs[start:end]
+		expected := expectedBacking[start:end]
+		actual := actualBacking[start:end]
 		if shouldSplit {
 			correctness := func(e, a []float64) float64 {
 				eIndex := argmax(e)
