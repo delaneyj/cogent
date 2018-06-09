@@ -155,7 +155,7 @@ func Test_Flowers(tt *testing.T) {
 				},
 			},
 		},
-		ParticleCount: 8,
+		ParticleCount: 12,
 		SwarmCount:    8,
 	}
 	tc := DefaultTrainingConfig
