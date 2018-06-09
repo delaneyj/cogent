@@ -82,7 +82,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 }
 
 //Train x
-func (ms *MultiSwarm) Train(dataset *Dataset) {
+func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 	ms.dataset = dataset
 
 	pti := particleTrainingInfo{
@@ -108,7 +108,11 @@ func (ms *MultiSwarm) Train(dataset *Dataset) {
 		wg.Add(ms.particleCount)
 		for i, s := range ms.swarms {
 			for _, p := range s.particles {
-				go p.train(wg, i, pti, ttSets)
+				if shouldMultithread {
+					go p.train(wg, i, pti, ttSets)
+				} else {
+					p.train(wg, i, pti, ttSets)
+				}
 			}
 		}
 		wg.Wait()

@@ -44,7 +44,7 @@ func basicMathTest(tt *testing.T, data Data) {
 	// tt.Parallel()
 	dataset := DataToTensorDataset(data)
 	s := NewMultiSwarm(basicMathConfig(), DefaultTrainingConfig)
-	s.Train(dataset)
+	s.Train(dataset, false)
 	accuracy := s.ClassificationAccuracy(dataset)
 	assert.Equal(tt, 1.0, accuracy)
 }
@@ -168,7 +168,7 @@ func Test_Flowers(tt *testing.T) {
 	s := NewMultiSwarm(config, tc)
 
 	dataset := DataToTensorDataset(data)
-	s.Train(dataset)
+	s.Train(dataset, false)
 	accuracy := s.ClassificationAccuracy(dataset)
 	assert.Equal(tt, 1.0, accuracy)
 }
