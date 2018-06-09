@@ -102,7 +102,7 @@ type particleTrainingInfo struct {
 	StoreGlobalBest       bool
 }
 
-func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*testTrainSet) {
+func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTrainingInfo, ttSets []*testTrainSet) {
 	// start := time.Now()
 	res, ok := p.blackboard.Load(globalKey)
 	checkOk(ok)
@@ -187,12 +187,11 @@ func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*test
 
 	wasGlobalBest := p.setBest(iteration, kfoldLossAvg, pti.RidgeRegressionWeight)
 	if wasGlobalBest {
-		// rmse := p.rmse(pti.Dataset)
-		// log.Printf("%d <%d:%d> accuracy:%f loss:%f", iteration, p.swarmID, p.id, testAcc, kfoldLossAvg)
+		rmse := p.rmse(pti.Dataset)
 		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
-		filename := fmt.Sprintf("KFX_%0.8f_TACC%0.2f.nn", kfoldLossAvg, 100*testAcc)
-		// log.Printf(filename)
-
+		filename := fmt.Sprintf("RMSE_%0.8f_KFX_%0.8f_TACC%0.2f.nn", rmse, kfoldLossAvg, 100*testAcc)
+		log.Printf("%d <%d:%d> New global best found", iteration, p.swarmID, p.id)
+		log.Print(filename)
 		if pti.StoreGlobalBest {
 			f, err := os.Create(filename)
 			checkErr(err)
@@ -213,6 +212,8 @@ func (p *particle) train(iteration int, pti particleTrainingInfo, ttSets []*test
 		loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
 		p.setBest(iteration, loss, pti.RidgeRegressionWeight)
 	}
+
+	wg.Done()
 }
 
 func must(d *t.Dense, err error) *t.Dense {
@@ -380,30 +381,19 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 	return wasGlobalBest
 }
 
-func (p *particle) rmse(dataset Dataset) float64 {
+func (p *particle) rmse(dataset *Dataset) float64 {
+	expected := dataset.Outputs
+	actual := p.nn.Activate(dataset.Inputs)
 
-	log.Fatal("oh noes")
-	rmse := 0.0
-	// wg := &sync.WaitGroup{}
-	// mu := &sync.Mutex{}
+	diff := must(actual.Sub(expected))
+	backing := diff.Data().([]float64)
 
-	// wg.Add(len(dataset))
-	// for _, d := range dataset {
-	// 	go func(d *Data) {
-	// 		expected := d.Outputs
-	// 		actual := p.nn.Activate(d.Inputs...)
-	// 		for j, a := range actual {
-	// 			e := expected[j]
-	// 			diff := a - e
-	// 			mu.Lock()
-	// 			rmse += diff * diff
-	// 			mu.Unlock()
-	// 		}
-	// 		wg.Done()
-	// 	}(d)
-	// }
-	// wg.Wait()
-	// return math.Sqrt(rmse / float64(len(dataset)))
+	rmse, count := 0.0, 0.0
+	for _, x := range backing {
+		rmse += x * x
+		count++
+	}
+	rmse = math.Sqrt(rmse / count)
 	return rmse
 }
 
