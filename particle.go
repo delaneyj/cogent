@@ -393,7 +393,7 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 	expected := dataset.Outputs
 	actual := p.nn.Activate(dataset.Inputs)
 
-	log.Fatalf("%+v %+v", expected, actual)
+	log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
 	diff := must(actual.Sub(expected))
 	backing := diff.Data().([]float64)
 
