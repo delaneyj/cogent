@@ -54,8 +54,8 @@ type LayerConfig struct {
 //LayerData x
 type LayerData struct {
 	NodeCount        int
-	WeightsAndBiases t.Dense
-	Velocities       t.Dense
+	WeightsAndBiases *t.Dense
+	Velocities       *t.Dense
 	Activation       ActivationMode
 }
 
@@ -71,8 +71,18 @@ func (l *LayerData) reset(weightRange float64) {
 		// log.Printf("%+v", x)
 	}
 
-	rnd(&l.WeightsAndBiases, 1)
-	rnd(&l.Velocities, 0.1)
+	rnd(l.WeightsAndBiases, 1)
+	rnd(l.Velocities, 0.1)
+}
+
+//Clone x
+func (l LayerData) Clone() LayerData {
+	return LayerData{
+		NodeCount:        l.NodeCount,
+		WeightsAndBiases: l.WeightsAndBiases.Clone().(*t.Dense),
+		Velocities:       l.Velocities.Clone().(*t.Dense),
+		Activation:       l.Activation,
+	}
 }
 
 func (nn *NeuralNetwork) weightsAndBiasesCount() int {
@@ -166,7 +176,7 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 	var activated *t.Dense
 	for _, l := range nn.Layers {
 		// log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
-		outputs := must(inputs.MatMul(&l.WeightsAndBiases))
+		outputs := must(inputs.MatMul(l.WeightsAndBiases))
 		activationFunc := activations[l.Activation]
 		activated = activationFunc(outputs)
 		// log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
@@ -188,7 +198,7 @@ func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
 	expectedOutput := eT.Data().([]float64)
 	aT := nn.Activate(testData.Inputs)
 	actualOuputs := aT.Data().([]float64)
-	log.Printf("%+v", aT)
+	// log.Printf("%+v", aT)
 
 	for i := 0; i < rowCount; i++ {
 		start := i * colCount

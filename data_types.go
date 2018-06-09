@@ -63,6 +63,18 @@ type Position struct {
 	Loss   float64
 }
 
+func nnToPosition(loss float64, nn *NeuralNetwork) Position {
+	layers := make([]LayerData, len(nn.Layers))
+	for i := range nn.Layers {
+		layers[i] = nn.Layers[i].Clone()
+	}
+	p := Position{
+		Loss:   loss,
+		Layers: layers,
+	}
+	return p
+}
+
 //TrainingConfiguration x
 type TrainingConfiguration struct {
 	InertialWeight        float64

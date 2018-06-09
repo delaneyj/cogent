@@ -122,11 +122,11 @@ loop:
 					foundBetter = true
 				}
 
-				b := ms.Best()
-				// wg.Wait()
-				log.Printf("iteration %d took %s. l:%f", notBetterAccIterations, time.Since(start), b.Best.Loss)
 			}
 		}
+		// wg.Wait()
+		b := ms.Best()
+		log.Printf("iteration %d took %s. l:%f", notBetterAccIterations, time.Since(start), b.Best.Loss)
 
 		if foundBetter {
 			notBetterAccIterations = 0
