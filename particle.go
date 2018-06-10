@@ -13,13 +13,19 @@ import (
 	t "gorgonia.org/tensor"
 )
 
+type layerTrainingInfo struct {
+	Velocities *t.Dense
+	Jitter     *t.Dense
+}
+
 type particle struct {
-	id         int
-	fn         lossFn
-	nn         *NeuralNetwork
-	blackboard *sync.Map
-	swarmID    int
-	r          *rand.Rand
+	id                 int
+	fn                 lossFn
+	nn                 *NeuralNetwork
+	blackboard         *sync.Map
+	swarmID            int
+	r                  *rand.Rand
+	layersTrainingInfo []*layerTrainingInfo
 }
 
 //NewNeuralNetworkConfiguration x
@@ -53,38 +59,34 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 	seed := int64(uint(swarmID) << uint(particleID))
 	r := rand.New(rand.NewSource(seed))
 
+	ltis := make([]*layerTrainingInfo, len(nnConfig.LayerConfigs))
 	for i, layerConfig := range nnConfig.LayerConfigs {
 		colCount = layerConfig.NodeCount
 		if i != lastLayerIndex {
 			colCount++
 		}
 
+		lti := &layerTrainingInfo{
+			Velocities: t.New(
+				t.Of(t.Float64),
+				t.WithShape(rowCount, colCount),
+			),
+			Jitter: t.New(
+				t.Of(Float),
+				t.WithShape(rowCount, colCount),
+			),
+		}
+		ltis[i] = lti
 		l := LayerData{
 			NodeCount: layerConfig.NodeCount,
 			WeightsAndBiases: t.New(
 				t.Of(Float),
 				t.WithShape(rowCount, colCount),
 			),
-			Velocities: t.New(
-				t.Of(t.Float64),
-				t.WithShape(rowCount, colCount),
-			),
-			LocalRand: t.New(
-				t.Of(Float),
-				t.WithShape(rowCount, colCount),
-			),
-			SwarmRand: t.New(
-				t.Of(Float),
-				t.WithShape(rowCount, colCount),
-			),
-			GlobalRand: t.New(
-				t.Of(Float),
-				t.WithShape(rowCount, colCount),
-			),
 			Activation: layerConfig.Activation,
 		}
 
-		l.reset(r, weightRange)
+		l.reset(r, lti, weightRange)
 
 		// log.Printf("Weights Tensor: %+v", l.WeightsAndBiases)
 		nn.Layers[i] = l
@@ -96,12 +98,13 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 	}
 
 	return &particle{
-		swarmID:    swarmID,
-		id:         particleID,
-		fn:         fn,
-		nn:         &nn,
-		blackboard: blackboard,
-		r:          r,
+		swarmID:            swarmID,
+		id:                 particleID,
+		fn:                 fn,
+		nn:                 &nn,
+		blackboard:         blackboard,
+		r:                  r,
+		layersTrainingInfo: ltis,
 	}
 }
 
@@ -136,21 +139,22 @@ func updatePositionsAndVelocities(ud updateData) float64 {
 	bestGlobal := ud.bestGlobal
 	for i, l := range p.nn.Layers {
 		currentLocal := l.WeightsAndBiases
+		lti := p.layersTrainingInfo[i]
 
 		bestLocal := p.nn.Best.Layers[i].WeightsAndBiases
-		currentLocalVelocity := l.Velocities
+		currentLocalVelocity := lti.Velocities
 		oldVelocityFactor := must(currentLocalVelocity.MulScalar(ud.inertialWeight, true))
 
 		bestLocalDelta := must(bestLocal.Sub(currentLocal))
-		localPositionFactor := must(must(l.LocalRand.MulScalar(ud.cognitiveWeight, true)).Mul(bestLocalDelta))
+		localPositionFactor := must(must(lti.Jitter.MulScalar(ud.cognitiveWeight, true)).Mul(bestLocalDelta))
 
 		bestSwarm := bestSwarm.Layers[i].WeightsAndBiases
 		bestSwarmlDelta := must(bestSwarm.Sub(currentLocal))
-		swarmPositionFactor := must(must(l.SwarmRand.MulScalar(ud.socialWeight, true)).Mul(bestSwarmlDelta))
+		swarmPositionFactor := must(must(lti.Jitter.MulScalar(ud.socialWeight, true)).Mul(bestSwarmlDelta))
 
 		bestGlobal := bestGlobal.Layers[i].WeightsAndBiases
 		bestGlobalDelta := must(bestGlobal.Sub(currentLocal))
-		globalPositionFactor := must(must(l.GlobalRand.MulScalar(ud.globalWeight, true)).Mul(bestGlobalDelta))
+		globalPositionFactor := must(must(lti.Jitter.MulScalar(ud.globalWeight, true)).Mul(bestGlobalDelta))
 
 		revisedVelocity := must(
 			must(
@@ -160,11 +164,12 @@ func updatePositionsAndVelocities(ud updateData) float64 {
 			).Add(globalPositionFactor),
 		)
 		// log.Printf("Layer:%d velocities were\n%+v\nNow\n%+v", i, l.Velocities, revisedVelocity)
-		revisedVelocity.CopyTo(l.Velocities)
+		revisedVelocity.CopyTo(lti.Velocities)
 	}
 
-	for _, l := range p.nn.Layers {
-		revisedPosition := must(l.WeightsAndBiases.Add(l.Velocities))
+	for i, l := range p.nn.Layers {
+		lti := p.layersTrainingInfo[i]
+		revisedPosition := must(l.WeightsAndBiases.Add(lti.Velocities))
 		data := revisedPosition.Data().([]float64)
 		for i, w := range data {
 			clamped := math.Max(-ud.weightRange, math.Min(ud.weightRange, w)) // restriction
@@ -190,10 +195,9 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 	checkOk(ok)
 	bestSwarm := res.(Position)
 
-	for _, l := range p.nn.Layers {
-		fillTensorWithRandom(p.r, l.LocalRand, 1, pti.WeightRange)
-		fillTensorWithRandom(p.r, l.SwarmRand, 1, pti.WeightRange)
-		fillTensorWithRandom(p.r, l.GlobalRand, 1, pti.WeightRange)
+	for i := range p.nn.Layers {
+		lti := p.layersTrainingInfo[i]
+		fillTensorWithRandom(p.r, lti.Jitter, 1, pti.WeightRange)
 	}
 
 	kfoldLossAvg := 0.0
@@ -240,7 +244,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		deathChance := p.r.Float64()
 		if deathChance < pti.DeathRate {
 			// log.Printf("<%d:%d:%d> died!", iteration, p.swarmID, p.id)
-			p.nn.reset(p.r, pti.WeightRange)
+			p.nn.reset(p.r, p.layersTrainingInfo, pti.WeightRange)
 			index := p.r.Intn(len(ttSets))
 
 			loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
@@ -443,9 +447,12 @@ func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight flo
 	loss := p.fn(expected, actual)
 	l2Regularization := 0.0
 	count := 0.0
-	for _, w := range p.nn.weights() {
-		l2Regularization += w * w
-		count++
+	for _, layer := range p.nn.Layers {
+		data := layer.WeightsAndBiases.Data().([]float64)
+		for _, w := range data {
+			l2Regularization += w * w
+			count++
+		}
 	}
 	l2Regularization /= count
 	l2Regularization *= ridgeRegressionWeight

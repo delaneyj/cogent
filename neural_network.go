@@ -24,6 +24,7 @@ var (
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
 		KFolds:                10,
+		StoreGlobalBest:       false,
 	}
 	//Float x
 	Float = t.Float64
@@ -52,11 +53,9 @@ type LayerConfig struct {
 
 //LayerData x
 type LayerData struct {
-	NodeCount                        int
-	WeightsAndBiases                 *t.Dense
-	Velocities                       *t.Dense
-	LocalRand, SwarmRand, GlobalRand *t.Dense
-	Activation                       ActivationMode
+	NodeCount        int
+	WeightsAndBiases *t.Dense
+	Activation       ActivationMode
 }
 
 func fillTensorWithRandom(r *rand.Rand, x *t.Dense, scaler, weightRange float64) {
@@ -70,9 +69,9 @@ func fillTensorWithRandom(r *rand.Rand, x *t.Dense, scaler, weightRange float64)
 	// log.Printf("%+v", x)
 }
 
-func (l *LayerData) reset(r *rand.Rand, weightRange float64) {
+func (l *LayerData) reset(r *rand.Rand, lti *layerTrainingInfo, weightRange float64) {
 	fillTensorWithRandom(r, l.WeightsAndBiases, 1, weightRange)
-	fillTensorWithRandom(r, l.Velocities, 0.1, weightRange)
+	fillTensorWithRandom(r, lti.Velocities, 0.1, weightRange)
 }
 
 //Clone x
@@ -80,7 +79,6 @@ func (l LayerData) Clone() LayerData {
 	return LayerData{
 		NodeCount:        l.NodeCount,
 		WeightsAndBiases: l.WeightsAndBiases.Clone().(*t.Dense),
-		Velocities:       l.Velocities.Clone().(*t.Dense),
 		Activation:       l.Activation,
 	}
 }
@@ -89,54 +87,13 @@ func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 	count := 0
 	for _, l := range nn.Layers {
 		count += l.WeightsAndBiases.DataSize()
-		// count += len(l.WeightsAndBiases)
 	}
 	return count
 }
 
-func (nn *NeuralNetwork) weights() []float64 {
-	weights := make([]float64, nn.weightsAndBiasesCount())
-	offset := 0
-	for _, l := range nn.Layers {
-		layerWBs := l.WeightsAndBiases.Data().([]float64)
-		copy(weights[offset:], layerWBs)
-		offset += len(layerWBs)
-	}
-	return weights
-}
-
-func (nn *NeuralNetwork) setWeights(weights []float64) {
-	offset := 0
-	for _, l := range nn.Layers {
-		layerWBs := l.WeightsAndBiases.Data().([]float64)
-		copy(layerWBs, weights[offset:])
-		offset += len(layerWBs)
-	}
-}
-
-func (nn *NeuralNetwork) velocities() []float64 {
-	velocities := make([]float64, nn.weightsAndBiasesCount())
-	offset := 0
-	for _, l := range nn.Layers {
-		v := l.Velocities.Data().([]float64)
-		copy(velocities[offset:], v)
-		offset += len(v)
-	}
-	return velocities
-}
-
-func (nn *NeuralNetwork) setVelocities(velocities []float64) {
-	offset := 0
-	for _, l := range nn.Layers {
-		v := l.Velocities.Data().([]float64)
-		copy(v, velocities[offset:])
-		offset += len(v)
-	}
-}
-
-func (nn *NeuralNetwork) reset(r *rand.Rand, weightRange float64) {
-	for _, l := range nn.Layers {
-		l.reset(r, weightRange)
+func (nn *NeuralNetwork) reset(r *rand.Rand, ltis []*layerTrainingInfo, weightRange float64) {
+	for i, l := range nn.Layers {
+		l.reset(r, ltis[i], weightRange)
 	}
 	nn.CurrentLoss = math.MaxFloat64
 	nn.Best.Loss = math.MaxFloat64

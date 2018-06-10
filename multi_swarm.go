@@ -67,7 +67,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		}
 		ms.swarms[swarmID] = s
 
-		tmpParticle.nn.reset(tmpParticle.r, trainingConfig.WeightRange)
+		tmpParticle.nn.reset(tmpParticle.r, tmpParticle.layersTrainingInfo, trainingConfig.WeightRange)
 		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
 
 		bb.Store(swarmKey, Position{
@@ -128,7 +128,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		// log.Printf("iteration %d took %s.", iterations, time.Since(start))
+		log.Printf("iteration %d took %s.", iterations, time.Since(start))
 		avgTime += time.Since(start)
 
 		if bestAcc >= pti.TargetAccuracy {
