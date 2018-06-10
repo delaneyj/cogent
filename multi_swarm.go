@@ -102,7 +102,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 
 	iterations, avgTime := 0, time.Duration(0)
 	for ; iterations < ms.trainingConfig.MaxIterations; iterations++ {
-		// log.Printf("iteration %d started.", i)
+		log.Printf("iteration %d started.", iterations)
 		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 
@@ -128,7 +128,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		// log.Printf("iteration %d took %s.", i, time.Since(start))
+		log.Printf("iteration %d took %s.", iterations, time.Since(start))
 		avgTime += time.Since(start)
 
 		if bestAcc >= pti.TargetAccuracy {

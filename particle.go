@@ -1,12 +1,10 @@
 package cogent
 
 import (
-	"encoding/gob"
 	fmt "fmt"
 	"log"
 	math "math"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
 
@@ -19,6 +17,7 @@ type particle struct {
 	nn         *NeuralNetwork
 	blackboard *sync.Map
 	swarmID    int
+	r          *rand.Rand
 }
 
 //NewNeuralNetworkConfiguration x
@@ -79,12 +78,14 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 		Layers: nn.Layers,
 	}
 
+	seed := int64(uint(swarmID) << uint(particleID))
 	return &particle{
 		swarmID:    swarmID,
 		id:         particleID,
 		fn:         fn,
 		nn:         &nn,
 		blackboard: blackboard,
+		r:          rand.New(rand.NewSource(seed)),
 	}
 }
 
@@ -202,22 +203,22 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		filename := fmt.Sprintf("RMSE_%0.8f_KFX_%0.8f_TACC%0.2f.nn", rmse, kfoldLossAvg, 100*testAcc)
 		log.Printf("Iteration:%d <%d:%d> New global best found", iteration, p.swarmID, p.id)
 		log.Print(filename)
-		if pti.StoreGlobalBest {
-			f, err := os.Create(filename)
-			checkErr(err)
-			e := gob.NewEncoder(f)
-			err = e.Encode(p.nn)
-			checkErr(err)
-			err = f.Close()
-			checkErr(err)
-		}
+		// if pti.StoreGlobalBest {
+		// 	f, err := os.Create(filename)
+		// 	checkErr(err)
+		// 	e := gob.NewEncoder(f)
+		// 	err = e.Encode(p.nn)
+		// 	checkErr(err)
+		// 	err = f.Close()
+		// 	checkErr(err)
+		// }
 	} else {
 		//The best don't die
-		deathChance := rand.Float64()
+		deathChance := p.r.Float64()
 		if deathChance < pti.DeathRate {
 			// log.Printf("<%d:%d:%d> died!", iteration, p.swarmID, p.id)
 			p.nn.reset(pti.WeightRange)
-			index := rand.Intn(len(ttSets))
+			index := p.r.Intn(len(ttSets))
 
 			loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
 			p.setBest(iteration, loss, pti.RidgeRegressionWeight)
@@ -242,7 +243,7 @@ type testTrainSet struct {
 type testTrainSets []*testTrainSet
 
 func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
-	rowCount := dataset.rowCount()
+	rowCount := dataset.RowCount()
 	if rowCount < k {
 		k = rowCount
 	}
@@ -411,8 +412,8 @@ func (p *particle) rmse(dataset *Dataset) float64 {
 }
 
 func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
-	expected := denseToRows(dataset.Outputs)
-	actual := denseToRows(p.nn.Activate(dataset.Inputs))
+	expected := DenseToRows(dataset.Outputs)
+	actual := DenseToRows(p.nn.Activate(dataset.Inputs))
 	// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
 	loss := p.fn(expected, actual)
 	l2Regularization := 0.0

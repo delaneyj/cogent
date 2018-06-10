@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	t "gorgonia.org/tensor"
 )
 
 func basicMathConfig(data Data) MultiSwarmConfiguration {
@@ -252,38 +251,4 @@ func Test_Error(t *testing.T) {
 			assert.Equal(t, expectedLoss, actualLoss, string(tt.lm))
 		}
 	}
-}
-
-type Data []struct {
-	Inputs  []float64
-	Outputs []float64
-}
-
-func DataToTensorDataset(data Data) *Dataset {
-	rows := len(data)
-	iColCount := len(data[0].Inputs)
-	oColCount := len(data[0].Outputs)
-	dataset := &Dataset{
-		Inputs: t.New(
-			t.Of(Float),
-			t.WithShape(rows, iColCount),
-		),
-		Outputs: t.New(
-			t.Of(Float),
-			t.WithShape(rows, oColCount),
-		),
-	}
-	inputsBacking := dataset.Inputs.Data().([]float64)
-	outputsBacking := dataset.Outputs.Data().([]float64)
-
-	i, o := 0, 0
-	for _, x := range data {
-		copy(inputsBacking[i:], x.Inputs)
-		i += len(x.Inputs)
-
-		copy(outputsBacking[o:], x.Outputs)
-		o += len(x.Outputs)
-	}
-
-	return dataset
 }

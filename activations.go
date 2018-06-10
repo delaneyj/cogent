@@ -185,7 +185,7 @@ var activations = map[ActivationMode]activationFunction{
 
 	Softmax: func(tt *t.Dense) *t.Dense {
 		result := tt.Clone().(*t.Dense)
-		for _, row := range denseToRows(result) {
+		for _, row := range DenseToRows(result) {
 			softmaxModifyRow(row)
 		}
 		return result
@@ -210,7 +210,7 @@ var activations = map[ActivationMode]activationFunction{
 
 	SplitSoftmax: func(tt *t.Dense) *t.Dense {
 		result := tt.Clone().(*t.Dense)
-		for _, row := range denseToRows(result) {
+		for _, row := range DenseToRows(result) {
 			offset := len(row) / 2
 			softmaxModifyRow(row[:offset])
 			softmaxModifyRow(row[offset:])
@@ -242,7 +242,8 @@ func softmaxModifyRow(row []float64) {
 	}
 }
 
-func denseToRows(tt *t.Dense) [][]float64 {
+//DenseToRows x
+func DenseToRows(tt *t.Dense) [][]float64 {
 	s := tt.Shape()
 	rowCount := s[0]
 	colCount := s[1]

@@ -190,8 +190,8 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 
 //ClassificationAccuracy percentage correct using winner-takes all
 func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
-	rowCount := testData.rowCount()
-	colCount := testData.outputColCount()
+	rowCount := testData.RowCount()
+	colCount := testData.OutputColCount()
 
 	correctCount := 0.0
 	splitIndex := colCount / 2

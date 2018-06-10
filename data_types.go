@@ -8,11 +8,13 @@ type Dataset struct {
 	Outputs *t.Dense
 }
 
-func (d *Dataset) outputColCount() int {
+//OutputColCount x
+func (d *Dataset) OutputColCount() int {
 	return d.Outputs.Shape()[1]
 }
 
-func (d *Dataset) rowCount() int {
+//RowCount x
+func (d *Dataset) RowCount() int {
 	return d.Outputs.Shape()[0]
 }
 
@@ -95,4 +97,40 @@ type MultiSwarmConfiguration struct {
 	NeuralNetworkConfiguration NeuralNetworkConfiguration
 	SwarmCount                 int
 	ParticleCount              int
+}
+
+//Data x
+type Data []struct {
+	Inputs  []float64
+	Outputs []float64
+}
+
+//DataToTensorDataset x
+func DataToTensorDataset(data Data) *Dataset {
+	rows := len(data)
+	iColCount := len(data[0].Inputs)
+	oColCount := len(data[0].Outputs)
+	dataset := &Dataset{
+		Inputs: t.New(
+			t.Of(Float),
+			t.WithShape(rows, iColCount),
+		),
+		Outputs: t.New(
+			t.Of(Float),
+			t.WithShape(rows, oColCount),
+		),
+	}
+	inputsBacking := dataset.Inputs.Data().([]float64)
+	outputsBacking := dataset.Outputs.Data().([]float64)
+
+	i, o := 0, 0
+	for _, x := range data {
+		copy(inputsBacking[i:], x.Inputs)
+		i += len(x.Inputs)
+
+		copy(outputsBacking[o:], x.Outputs)
+		o += len(x.Outputs)
+	}
+
+	return dataset
 }
