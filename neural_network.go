@@ -52,26 +52,27 @@ type LayerConfig struct {
 
 //LayerData x
 type LayerData struct {
-	NodeCount        int
-	WeightsAndBiases *t.Dense
-	Velocities       *t.Dense
-	Activation       ActivationMode
+	NodeCount                        int
+	WeightsAndBiases                 *t.Dense
+	Velocities                       *t.Dense
+	LocalRand, SwarmRand, GlobalRand *t.Dense
+	Activation                       ActivationMode
 }
 
-func (l *LayerData) reset(weightRange float64) {
-	rnd := func(x t.Tensor, scaler float64) {
-		data := x.Data().([]float64)
+func fillTensorWithRandom(r *rand.Rand, x *t.Dense, scaler, weightRange float64) {
+	data := x.Data().([]float64)
 
-		for i := range data {
-			lo := -scaler * weightRange
-			hi := scaler * weightRange
-			data[i] = (hi-lo)*rand.Float64() + lo
-		}
-		// log.Printf("%+v", x)
+	for i := range data {
+		lo := -scaler * weightRange
+		hi := scaler * weightRange
+		data[i] = (hi-lo)*rand.Float64() + lo
 	}
+	// log.Printf("%+v", x)
+}
 
-	rnd(l.WeightsAndBiases, 1)
-	rnd(l.Velocities, 0.1)
+func (l *LayerData) reset(r *rand.Rand, weightRange float64) {
+	fillTensorWithRandom(r, l.WeightsAndBiases, 1, weightRange)
+	fillTensorWithRandom(r, l.Velocities, 0.1, weightRange)
 }
 
 //Clone x
@@ -133,9 +134,9 @@ func (nn *NeuralNetwork) setVelocities(velocities []float64) {
 	}
 }
 
-func (nn *NeuralNetwork) reset(weightRange float64) {
+func (nn *NeuralNetwork) reset(r *rand.Rand, weightRange float64) {
 	for _, l := range nn.Layers {
-		l.reset(weightRange)
+		l.reset(r, weightRange)
 	}
 	nn.CurrentLoss = math.MaxFloat64
 	nn.Best.Loss = math.MaxFloat64
@@ -168,9 +169,17 @@ func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
 	return expandedT
 }
 
+func resetBiasColumn(tt *t.Dense) {
+	colCount := tt.Shape()[1]
+	data := tt.Data().([]float64)
+	for i := colCount - 1; i < len(data); i += colCount {
+		data[i] = 1
+	}
+}
+
 //Activate feeds forward through the network
 func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
-	inputs := cloneAndExpandColumn(initialInputs)
+	inputs := initialInputs
 
 	lastLayerIndex := len(nn.Layers) - 1
 	var activated *t.Dense
@@ -182,7 +191,8 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 		// log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
 
 		if i != lastLayerIndex {
-			inputs = cloneAndExpandColumn(activated)
+			resetBiasColumn(activated)
+			inputs = activated
 		}
 	}
 	return activated

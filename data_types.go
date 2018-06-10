@@ -18,6 +18,15 @@ func (d *Dataset) RowCount() int {
 	return d.Outputs.Shape()[0]
 }
 
+//CloneAndAddBiasColumn x
+func (d *Dataset) CloneAndAddBiasColumn() *Dataset {
+	cloned := &Dataset{
+		Inputs:  cloneAndExpandColumn(d.Inputs),
+		Outputs: d.Outputs.Clone().(*t.Dense),
+	}
+	return cloned
+}
+
 //ActivationMode x
 type ActivationMode int
 
@@ -110,7 +119,7 @@ func DataToTensorDataset(data Data) *Dataset {
 	rows := len(data)
 	iColCount := len(data[0].Inputs)
 	oColCount := len(data[0].Outputs)
-	dataset := &Dataset{
+	dataset := Dataset{
 		Inputs: t.New(
 			t.Of(Float),
 			t.WithShape(rows, iColCount),
@@ -132,5 +141,5 @@ func DataToTensorDataset(data Data) *Dataset {
 		o += len(x.Outputs)
 	}
 
-	return dataset
+	return dataset.CloneAndAddBiasColumn()
 }

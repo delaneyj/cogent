@@ -67,7 +67,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		}
 		ms.swarms[swarmID] = s
 
-		tmpParticle.nn.reset(trainingConfig.WeightRange)
+		tmpParticle.nn.reset(tmpParticle.r, trainingConfig.WeightRange)
 		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
 
 		bb.Store(swarmKey, Position{
@@ -84,7 +84,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 
 //Train x
 func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
-	ms.dataset = dataset
+	// log.Printf("%+v %+v", ms.dataset.Inputs, ms.dataset.Outputs)
 
 	pti := particleTrainingInfo{
 		Dataset:               dataset,
@@ -102,7 +102,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 
 	iterations, avgTime := 0, time.Duration(0)
 	for ; iterations < ms.trainingConfig.MaxIterations; iterations++ {
-		log.Printf("iteration %d started.", iterations)
+		// log.Printf("iteration %d started.", iterations)
 		start := time.Now()
 		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
 
@@ -128,7 +128,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			}
 		}
 		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
-		log.Printf("iteration %d took %s.", iterations, time.Since(start))
+		// log.Printf("iteration %d took %s.", iterations, time.Since(start))
 		avgTime += time.Since(start)
 
 		if bestAcc >= pti.TargetAccuracy {
