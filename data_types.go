@@ -2,25 +2,25 @@ package cogent
 
 import t "gorgonia.org/tensor"
 
-//Dataset x
-type Dataset struct {
+//DataBucket x
+type DataBucket struct {
 	Inputs  *t.Dense
 	Outputs *t.Dense
 }
 
 //OutputColCount x
-func (d *Dataset) OutputColCount() int {
+func (d *DataBucket) OutputColCount() int {
 	return d.Outputs.Shape()[1]
 }
 
 //RowCount x
-func (d *Dataset) RowCount() int {
+func (d *DataBucket) RowCount() int {
 	return d.Outputs.Shape()[0]
 }
 
 //CloneAndAddBiasColumn x
-func (d *Dataset) CloneAndAddBiasColumn() *Dataset {
-	cloned := &Dataset{
+func (d *DataBucket) CloneAndAddBiasColumn() *DataBucket {
+	cloned := &DataBucket{
 		Inputs:  cloneAndExpandColumn(d.Inputs),
 		Outputs: d.Outputs.Clone().(*t.Dense),
 	}
@@ -114,12 +114,12 @@ type Data []struct {
 	Outputs []float64
 }
 
-//DataToTensorDataset x
-func DataToTensorDataset(data Data) *Dataset {
+//DataToTensorDataBucket x
+func DataToTensorDataBucket(data Data) *DataBucket {
 	rows := len(data)
 	iColCount := len(data[0].Inputs)
 	oColCount := len(data[0].Outputs)
-	dataset := Dataset{
+	bucket := DataBucket{
 		Inputs: t.New(
 			t.Of(Float),
 			t.WithShape(rows, iColCount),
@@ -129,8 +129,8 @@ func DataToTensorDataset(data Data) *Dataset {
 			t.WithShape(rows, oColCount),
 		),
 	}
-	inputsBacking := dataset.Inputs.Data().([]float64)
-	outputsBacking := dataset.Outputs.Data().([]float64)
+	inputsBacking := bucket.Inputs.Data().([]float64)
+	outputsBacking := bucket.Outputs.Data().([]float64)
 
 	i, o := 0, 0
 	for _, x := range data {
@@ -141,5 +141,5 @@ func DataToTensorDataset(data Data) *Dataset {
 		o += len(x.Outputs)
 	}
 
-	return dataset.CloneAndAddBiasColumn()
+	return bucket.CloneAndAddBiasColumn()
 }

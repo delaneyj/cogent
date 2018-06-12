@@ -22,7 +22,7 @@ type MultiSwarm struct {
 	blackboard     *sync.Map
 	swarms         []*swarm
 	trainingConfig TrainingConfiguration
-	dataset        *Dataset
+	buckets        DataBuckets
 
 	predictor *NeuralNetwork
 }
@@ -83,11 +83,10 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 }
 
 //Train x
-func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
+func (ms *MultiSwarm) Train(buckets DataBuckets, shouldMultithread bool) {
 	// log.Printf("%+v %+v", ms.dataset.Inputs, ms.dataset.Outputs)
 
 	pti := particleTrainingInfo{
-		Dataset:               dataset,
 		TargetAccuracy:        ms.trainingConfig.TargetAccuracy,
 		InertialWeight:        ms.trainingConfig.InertialWeight,
 		CognitiveWeight:       ms.trainingConfig.CognitiveWeight,
@@ -104,16 +103,14 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 	for ; iterations < ms.trainingConfig.MaxIterations; iterations++ {
 		// log.Printf("iteration %d started.", iterations)
 		start := time.Now()
-		ttSets := kfoldTestTrainSets(pti.KFolds, pti.Dataset)
-
 		wg := &sync.WaitGroup{}
 		wg.Add(ms.particleCount)
 		for _, s := range ms.swarms {
 			for _, p := range s.particles {
 				if shouldMultithread {
-					go p.train(wg, iterations, pti, ttSets)
+					go p.train(wg, iterations, pti, buckets)
 				} else {
-					p.train(wg, iterations, pti, ttSets)
+					p.train(wg, iterations, pti, buckets)
 				}
 			}
 		}
@@ -127,7 +124,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 				}
 			}
 		}
-		bestAcc := nn.ClassificationAccuracy(pti.Dataset)
+		bestAcc := nn.ClassificationAccuracy(buckets, -1)
 		log.Printf("iteration %d took %s.", iterations, time.Since(start))
 		avgTime += time.Since(start)
 
@@ -135,6 +132,7 @@ func (ms *MultiSwarm) Train(dataset *Dataset, shouldMultithread bool) {
 			ms.predictor = nn
 			break
 		}
+		break
 	}
 
 	log.Printf("Did %d iterations taking on average %s.", iterations, avgTime/time.Duration(iterations+1))
@@ -153,9 +151,9 @@ func (ms *MultiSwarm) predictNN() *NeuralNetwork {
 }
 
 //ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(testData *Dataset) float64 {
+func (ms *MultiSwarm) ClassificationAccuracy(buckets DataBuckets) float64 {
 	ms.predictNN()
-	acc := ms.predictNN().ClassificationAccuracy(testData)
+	acc := ms.predictNN().ClassificationAccuracy(buckets, -1)
 	return acc
 }
 

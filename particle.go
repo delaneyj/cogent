@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 
 	t "gorgonia.org/tensor"
@@ -109,7 +110,6 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 }
 
 type particleTrainingInfo struct {
-	Dataset               *Dataset
 	TargetAccuracy        float64
 	InertialWeight        float64
 	CognitiveWeight       float64
@@ -129,7 +129,8 @@ type updateData struct {
 	inertialWeight, cognitiveWeight    float64
 	socialWeight, globalWeight         float64
 	weightRange, ridgeRegressionWeight float64
-	ttSet                              *testTrainSet
+	buckets                            DataBuckets
+	testBucketIndex                    int
 	lossCh                             chan float64
 }
 
@@ -180,11 +181,11 @@ func updatePositionsAndVelocities(ud updateData) float64 {
 		revisedPosition.CopyTo(l.WeightsAndBiases)
 	}
 
-	loss := p.calculateMeanLoss(ud.ttSet.train, ud.ridgeRegressionWeight)
+	loss := p.calculateMeanLoss(ud.testBucketIndex, ud.buckets, ud.ridgeRegressionWeight)
 	return loss
 }
 
-func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTrainingInfo, ttSets []*testTrainSet) {
+func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTrainingInfo, buckets DataBuckets) {
 	// start := time.Now()
 	res, ok := p.blackboard.Load(globalKey)
 	checkOk(ok)
@@ -200,8 +201,8 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		fillTensorWithRandom(p.r, lti.Jitter, 1, pti.WeightRange)
 	}
 
-	kfoldLossAvg := 0.0
-	for _, ttSet := range ttSets {
+	kfoldLossAvg, bucketCount := 0.0, 0.0
+	for testIndex := range buckets {
 		loss := updatePositionsAndVelocities(updateData{
 			p:                     p,
 			bestSwarm:             &bestSwarm,
@@ -212,43 +213,29 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 			globalWeight:          pti.GlobalWeight,
 			weightRange:           pti.WeightRange,
 			ridgeRegressionWeight: pti.RidgeRegressionWeight,
-			ttSet: ttSet,
+			testBucketIndex:       testIndex,
+			buckets:               buckets,
 		})
 		kfoldLossAvg += loss
+		bucketCount++
 	}
-	kfoldLossAvg /= float64(len(ttSets))
+	kfoldLossAvg /= bucketCount
 
 	// for _, l := range p.nn.Layers {
 	// 	log.Printf("%+v", l.WeightsAndBiases)
 	// }
 	// log.Printf("Iteration:%d <%d:%d> took %s. %f", iteration, p.swarmID, p.id, time.Since(start), kfoldLossAvg)
 
-	wasGlobalBest := p.setBest(iteration, kfoldLossAvg, pti.RidgeRegressionWeight)
-	if wasGlobalBest {
-		rmse := p.rmse(pti.Dataset)
-		testAcc := p.nn.ClassificationAccuracy(pti.Dataset)
-		filename := fmt.Sprintf("RMSE_%0.8f_KFX_%0.8f_TACC%0.2f.nn", rmse, kfoldLossAvg, 100*testAcc)
-		log.Printf("Iteration:%d <%d:%d> New global best found", iteration, p.swarmID, p.id)
-		log.Print(filename)
-		if pti.StoreGlobalBest {
-			f, err := os.Create(filename)
-			checkErr(err)
-			e := gob.NewEncoder(f)
-			err = e.Encode(p.nn)
-			checkErr(err)
-			err = f.Close()
-			checkErr(err)
-		}
-	} else {
+	wasSwarmBest, wasGlobalBest := p.setBest(iteration, kfoldLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
+	if !wasGlobalBest && !wasSwarmBest {
 		//The best don't die
 		deathChance := p.r.Float64()
 		if deathChance < pti.DeathRate {
-			// log.Printf("<%d:%d:%d> died!", iteration, p.swarmID, p.id)
+			log.Printf("<%d> <Swarm%d:Particle%d> died!", iteration, p.swarmID, p.id)
 			p.nn.reset(p.r, p.layersTrainingInfo, pti.WeightRange)
-			index := p.r.Intn(len(ttSets))
-
-			loss := p.calculateMeanLoss(ttSets[index].train, pti.RidgeRegressionWeight)
-			p.setBest(iteration, loss, pti.RidgeRegressionWeight)
+			randomIndex := p.r.Intn(len(buckets))
+			loss := p.calculateMeanLoss(randomIndex, buckets, pti.RidgeRegressionWeight)
+			p.setBest(iteration, loss, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 		}
 
 	}
@@ -263,13 +250,11 @@ func must(d *t.Dense, err error) *t.Dense {
 	return d
 }
 
-type testTrainSet struct {
-	train, test *Dataset
-}
+//DataBuckets x
+type DataBuckets []*DataBucket
 
-type testTrainSets []*testTrainSet
-
-func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
+//DataBucketToBuckets x
+func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 	rowCount := dataset.RowCount()
 	if rowCount < k {
 		k = rowCount
@@ -278,12 +263,18 @@ func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
 	// log.Printf("%+v %+v", dataset.Inputs, dataset.Outputs)
 
 	inputs := dataset.Inputs.Data().([]float64)
-	iColCount := dataset.Inputs.Shape()[1]
+	is := dataset.Inputs.Shape()
+	iRowCount := is[0]
+	iColCount := is[1]
 	outputs := dataset.Outputs.Data().([]float64)
-	oColCount := dataset.Outputs.Shape()[1]
+	rs := dataset.Outputs.Shape()
+	oRowCount := rs[0]
+	oColCount := rs[1]
 
+	iTmp := make([]float64, iColCount)
+	oTmp := make([]float64, oColCount)
 	rand.Shuffle(rowCount, func(i, j int) {
-		var x, y, tmp []float64
+		var x, y []float64
 
 		iStartI := iColCount * i
 		iEndI := iStartI + iColCount
@@ -291,9 +282,9 @@ func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
 		iEndJ := iStartJ + iColCount
 		x = inputs[iStartI:iEndI]
 		y = inputs[iStartJ:iEndJ]
-		tmp = append([]float64{}, x...)
+		copy(iTmp, x)
 		copy(x, y)
-		copy(y, tmp)
+		copy(y, iTmp)
 
 		oStartI := oColCount * i
 		oEndI := oStartI + oColCount
@@ -301,90 +292,48 @@ func kfoldTestTrainSets(k int, dataset *Dataset) testTrainSets {
 		oEndJ := oStartJ + oColCount
 		x = outputs[oStartI:oEndI]
 		y = outputs[oStartJ:oEndJ]
-		tmp = append([]float64{}, x...)
+		copy(oTmp, x)
 		copy(x, y)
-		copy(y, tmp)
+		copy(y, oTmp)
 	})
 
-	type bucket struct {
-		inputs  []float64
-		outputs []float64
-	}
 	bucketRowCount := rowCount / k
-	buckets := make([]bucket, k)
-	iDelta := iColCount * bucketRowCount
-	oDelta := oColCount * bucketRowCount
-
-	for i := range buckets {
-		iOffset := i * iDelta
-		oOffset := i * oDelta
-		buckets[i] = bucket{
-			inputs:  inputs[iOffset : iOffset+iDelta],
-			outputs: outputs[oOffset : oOffset+oDelta],
-		}
-	}
-
-	tt := make(testTrainSets, k)
+	buckets := make(DataBuckets, k)
+	iDelta := iColCount * iRowCount
+	oDelta := oColCount * oRowCount
 	for i := 0; i < k; i++ {
-		testBucket := buckets[i]
-		test := Dataset{
+		iOffset := i * iDelta
+		bucketInputs := inputs[iOffset : iOffset+iDelta]
+		oOffset := i * oDelta
+		bucketOutputs := outputs[oOffset : oOffset+iDelta]
+		bucket := &DataBucket{
 			Inputs: t.New(
 				t.Of(Float),
 				t.WithShape(bucketRowCount, iColCount),
-				t.WithBacking(testBucket.inputs),
+				t.WithBacking(bucketInputs),
 			),
 			Outputs: t.New(
 				t.Of(Float),
 				t.WithShape(bucketRowCount, oColCount),
-				t.WithBacking(testBucket.outputs),
+				t.WithBacking(bucketOutputs),
 			),
 		}
-
-		trainingRowCount := 0
-		trainBucket := bucket{}
-		for j, b := range buckets {
-			if j == i {
-				continue
-			}
-
-			trainBucket.inputs = append(trainBucket.inputs, b.inputs...)
-			trainBucket.outputs = append(trainBucket.outputs, b.outputs...)
-			trainingRowCount += len(b.inputs) / iColCount
-		}
-		train := Dataset{
-			Inputs: t.New(
-				t.Of(Float),
-				t.WithShape(trainingRowCount, iColCount),
-				t.WithBacking(trainBucket.inputs),
-			),
-			Outputs: t.New(
-				t.Of(Float),
-				t.WithShape(trainingRowCount, oColCount),
-				t.WithBacking(trainBucket.outputs),
-			),
-		}
-
-		// log.Printf("ti%+v to%+v", test.Inputs, test.Outputs)
-
-		tt[i] = &testTrainSet{
-			train: &train,
-			test:  &test,
-		}
+		buckets[i] = bucket
 	}
 
-	return tt
+	return buckets
 }
 
-func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight float64) bool {
+func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight float64, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
 	p.nn.CurrentLoss = loss
-	wasGlobalBest := false
+	var wasSwarmBest, wasGlobalBest bool
 	localBestLoss := p.nn.Best.Loss
 	if loss < localBestLoss {
-		// blf := "max"
-		// if p.nn.Best.Loss != math.MaxFloat64 {
-		// 	blf = fmt.Sprintf("%0.16f", p.nn.Best.Loss)
-		// }
-		// log.Printf("<%d> Local best <%d:%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+		blf := "max"
+		if p.nn.Best.Loss != math.MaxFloat64 {
+			blf = fmt.Sprintf("%0.16f", p.nn.Best.Loss)
+		}
+		log.Printf("<%d> Local best <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
 		updatedBest := nnToPosition(loss, p.nn)
 		p.nn.Best = updatedBest
 
@@ -394,24 +343,51 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 		bestSwarm := res.(Position)
 
 		if loss < bestSwarm.Loss {
-			// blf = "max"
-			// if bestSwarm.Loss != math.MaxFloat64 {
-			// 	blf = fmt.Sprintf("%0.16f", bestSwarm.Loss)
-			// }
-			// log.Printf("<%d> Swarm best <%d:%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+			blf = "max"
+			if bestSwarm.Loss != math.MaxFloat64 {
+				blf = fmt.Sprintf("%0.16f", bestSwarm.Loss)
+			}
+			log.Printf("<%d> Swarm best  <Swarm%d:Particle%d>> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
 			p.blackboard.Store(bestSwarmKey, updatedBest)
+			wasSwarmBest = true
 
 			res, ok = p.blackboard.Load(globalKey)
 			checkOk(ok)
 			bestGlobal := res.(Position)
 			if loss < bestGlobal.Loss {
-				// blf := "max"
-				// if bestGlobal.Loss != math.MaxFloat64 {
-				// 	blf = fmt.Sprintf("%0.16f", bestGlobal.Loss)
-				// }
-				// log.Printf("<%d> Global best <%d:%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+				blf := "max"
+				if bestGlobal.Loss != math.MaxFloat64 {
+					blf = fmt.Sprintf("%0.16f", bestGlobal.Loss)
+				}
+				log.Printf("<%d> Global best  <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
 				p.blackboard.Store(globalKey, updatedBest)
 				wasGlobalBest = true
+
+				rmse := p.rmse(buckets)
+				testAcc := p.nn.ClassificationAccuracy(buckets, -1)
+
+				nodeCounts := make([]string, len(p.nn.Layers))
+				for i, l := range p.nn.Layers {
+					nodeCounts[i] = fmt.Sprint(l.NodeCount)
+				}
+
+				sb := strings.Builder{}
+				sb.WriteString(strings.Join(nodeCounts, "x"))
+				sb.WriteString(fmt.Sprintf("_KFX_%0.4f_RMSE_%0.4f_TACC%0.2f.nn", loss, rmse, 100*testAcc))
+
+				filename := sb.String()
+				// log.Printf("Iteration:%d <Swarm%d:Particle%d> New global best found", iteration, p.swarmID, p.id)
+
+				if storeGlobalBest {
+					f, err := os.Create(filename)
+					checkErr(err)
+					e := gob.NewEncoder(f)
+					err = e.Encode(p.nn)
+					checkErr(err)
+					err = f.Close()
+					checkErr(err)
+				}
+				log.Print(filename)
 			}
 		}
 	}
@@ -420,45 +396,53 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 		p.blackboard.Store(bestGlobalNNKey, *p.nn)
 	}
 
-	return wasGlobalBest
+	return wasSwarmBest, wasGlobalBest
 }
 
-func (p *particle) rmse(dataset *Dataset) float64 {
-	expected := dataset.Outputs
-	actual := p.nn.Activate(dataset.Inputs)
-
-	// log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
-	diff := must(actual.Sub(expected))
-	backing := diff.Data().([]float64)
-
+func (p *particle) rmse(buckets DataBuckets) float64 {
 	rmse, count := 0.0, 0.0
-	for _, x := range backing {
-		rmse += x * x
-		count++
+	for _, bucket := range buckets {
+		expected := bucket.Outputs
+		actual := p.nn.Activate(bucket.Inputs)
+
+		// log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
+		diff := must(actual.Sub(expected))
+		backing := diff.Data().([]float64)
+
+		for _, x := range backing {
+			rmse += x * x
+			count++
+		}
 	}
 	rmse = math.Sqrt(rmse / count)
 	return rmse
 }
 
-func (p *particle) calculateMeanLoss(dataset *Dataset, ridgeRegressionWeight float64) float64 {
-	expected := DenseToRows(dataset.Outputs)
-	actual := DenseToRows(p.nn.Activate(dataset.Inputs))
-	// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
-	loss := p.fn(expected, actual)
+func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, ridgeRegressionWeight float64) float64 {
+	avgLoss, bucketCount := 0.0, 0.0
+	for _, bucket := range buckets {
+		expected := DenseToRows(bucket.Outputs)
+		actual := DenseToRows(p.nn.Activate(bucket.Inputs))
+		// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
+		loss := p.fn(expected, actual)
+		avgLoss += loss
+		bucketCount++
+	}
+	avgLoss /= bucketCount
 	l2Regularization := 0.0
-	count := 0.0
+	weightCount := 0.0
 	for _, layer := range p.nn.Layers {
 		data := layer.WeightsAndBiases.Data().([]float64)
 		for _, w := range data {
 			l2Regularization += w * w
-			count++
+			weightCount++
 		}
 	}
-	l2Regularization /= count
+	l2Regularization /= weightCount
 	l2Regularization *= ridgeRegressionWeight
 
 	// log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
-	return loss + l2Regularization
+	return avgLoss + l2Regularization
 }
 
 func checkOk(ok bool) {

@@ -85,12 +85,13 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 	}
 
 	log.Printf("Learn encodings from %d rows of examples.", rowCount)
+
 	for _, row := range table {
 		for c, col := range row {
 			ce := columnEncodings[c]
 			err := ce.Learn(col)
 			if err != nil {
-				return nil, errors.Wrap(err, "can't learn from column")
+				log.Fatal(err, "can't learn from column")
 			}
 		}
 	}

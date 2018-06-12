@@ -156,49 +156,58 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
-func (nn *NeuralNetwork) ClassificationAccuracy(testData *Dataset) float64 {
-	rowCount := testData.RowCount()
-	colCount := testData.OutputColCount()
+func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex int) float64 {
 
-	correctCount := 0.0
-	splitIndex := colCount / 2
-	shouldSplit := nn.Layers[len(nn.Layers)-1].Activation == SplitSoftmax
+	correctCount, totalCount := 0.0, 0.0
+	for b := 0; b < len(buckets); b++ {
+		if testIndex >= 0 && b != testIndex {
+			continue
+		}
 
-	expected := testData.Outputs
-	expectedBacking := expected.Data().([]float64)
-	actual := nn.Activate(testData.Inputs)
-	actualBacking := actual.Data().([]float64)
-	// log.Printf("Expected\n%+v\nActual\n%+v", expected, actual)
+		bucket := buckets[b]
+		rowCount := bucket.RowCount()
+		colCount := bucket.OutputColCount()
+		splitIndex := colCount / 2
+		shouldSplit := nn.Layers[len(nn.Layers)-1].Activation == SplitSoftmax
 
-	for i := 0; i < rowCount; i++ {
-		start := i * colCount
-		end := start + colCount
+		expected := bucket.Outputs
+		expectedBacking := expected.Data().([]float64)
+		actual := nn.Activate(bucket.Inputs)
+		actualBacking := actual.Data().([]float64)
+		// log.Printf("Expected\n%+v\nActual\n%+v", expected, actual)
 
-		expected := expectedBacking[start:end]
-		actual := actualBacking[start:end]
-		if shouldSplit {
-			correctness := func(e, a []float64) float64 {
-				eIndex := argmax(e)
-				aIndex := argmax(a)
-				delta := math.Abs(float64(eIndex - aIndex))
-				x := 0.5 * math.Pow(0.5, delta)
-				return x
+		for i := 0; i < rowCount; i++ {
+			start := i * colCount
+			end := start + colCount
+
+			expected := expectedBacking[start:end]
+			actual := actualBacking[start:end]
+			if shouldSplit {
+				correctness := func(e, a []float64) float64 {
+					eIndex := argmax(e)
+					aIndex := argmax(a)
+					delta := math.Abs(float64(eIndex - aIndex))
+					x := 0.5 * math.Pow(0.5, delta)
+					return x
+				}
+
+				lC := correctness(expected[:splitIndex], actual[:splitIndex])
+				rC := correctness(expected[splitIndex:], actual[splitIndex:])
+				correctCount += (lC + rC)
+			} else {
+				eI := argmax(expected)
+				aI := argmax(actual)
+
+				if eI == aI {
+					correctCount++
+				}
 			}
 
-			lC := correctness(expected[:splitIndex], actual[:splitIndex])
-			rC := correctness(expected[splitIndex:], actual[splitIndex:])
-			correctCount += (lC + rC)
-		} else {
-			eI := argmax(expected)
-			aI := argmax(actual)
-
-			if eI == aI {
-				correctCount++
-			}
+			totalCount++
 		}
 	}
 
-	ratio := correctCount / float64(rowCount)
+	ratio := correctCount / totalCount
 	return ratio
 }
 
