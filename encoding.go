@@ -3,7 +3,8 @@ package cogent
 import (
 	"fmt"
 	"log"
-	"math"
+
+	math "github.com/chewxy/math32"
 
 	"github.com/pkg/errors"
 )
@@ -42,11 +43,11 @@ const (
 
 type valueEncoding interface {
 	Learn(categories ...string) error
-	Encode(category string) ([]float64, error)
+	Encode(category string) ([]float32, error)
 }
 
 //TableEncoding converts strings from usually an excel file to data ready for neural network
-func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, error) {
+func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float32, error) {
 	rowCount := len(table)
 	if rowCount == 0 {
 		return nil, errors.New("no rows in table")
@@ -97,10 +98,10 @@ func TableEncoding(encodings []EncodingMode, table [][]string) ([][]float64, err
 	}
 
 	log.Print("Start encoding.")
-	encodedRows := make([][]float64, rowCount)
+	encodedRows := make([][]float32, rowCount)
 	for r, row := range table {
 		firstRow := r == 0
-		encodedRow := []float64{}
+		encodedRow := []float32{}
 		for c, col := range row {
 			ce := columnEncodings[c]
 

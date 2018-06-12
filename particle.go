@@ -4,12 +4,13 @@ import (
 	"encoding/gob"
 	fmt "fmt"
 	"log"
-	math "math"
 	"math/rand"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
+
+	math "github.com/chewxy/math32"
 
 	t "gorgonia.org/tensor"
 )
@@ -39,7 +40,7 @@ func NewNeuralNetworkConfiguration(inputCount int, lc ...LayerConfig) *NeuralNet
 	return &nnc
 }
 
-func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange float64, nnConfig NeuralNetworkConfiguration) *particle {
+func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange float32, nnConfig NeuralNetworkConfiguration) *particle {
 	// var nnConfig NeuralNetworkConfiguration
 	// var trainingConfig TrainingConfiguration
 
@@ -49,7 +50,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 	}
 	nn := NeuralNetwork{
 		Layers:      make([]LayerData, len(nnConfig.LayerConfigs)),
-		CurrentLoss: math.MaxFloat64,
+		CurrentLoss: math.MaxFloat32,
 		Loss:        nnConfig.Loss,
 	}
 
@@ -69,7 +70,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 
 		lti := &layerTrainingInfo{
 			Velocities: t.New(
-				t.Of(t.Float64),
+				t.Of(Float),
 				t.WithShape(rowCount, colCount),
 			),
 			Jitter: t.New(
@@ -94,7 +95,7 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 		rowCount = colCount
 	}
 	nn.Best = Position{
-		Loss:   math.MaxFloat64,
+		Loss:   math.MaxFloat32,
 		Layers: nn.Layers,
 	}
 
@@ -110,31 +111,28 @@ func newParticle(swarmID, particleID int, blackboard *sync.Map, weightRange floa
 }
 
 type particleTrainingInfo struct {
-	TargetAccuracy        float64
-	InertialWeight        float64
-	CognitiveWeight       float64
-	SocialWeight          float64
-	GlobalWeight          float64
-	WeightRange           float64
-	WeightDecayRate       float64
-	DeathRate             float64
-	RidgeRegressionWeight float64
-	KFolds                int
+	TargetAccuracy        float32
+	InertialWeight        float32
+	CognitiveWeight       float32
+	SocialWeight          float32
+	GlobalWeight          float32
+	WeightRange           float32
+	WeightDecayRate       float32
+	DeathRate             float32
+	RidgeRegressionWeight float32
 	StoreGlobalBest       bool
 }
 
 type updateData struct {
-	p                                  *particle
-	bestSwarm, bestGlobal              *Position
-	inertialWeight, cognitiveWeight    float64
-	socialWeight, globalWeight         float64
-	weightRange, ridgeRegressionWeight float64
-	buckets                            DataBuckets
-	testBucketIndex                    int
-	lossCh                             chan float64
+	p                               *particle
+	bestSwarm, bestGlobal           *Position
+	inertialWeight, cognitiveWeight float32
+	socialWeight, globalWeight      float32
+	weightRange                     float32
+	lossCh                          chan float32
 }
 
-func updatePositionsAndVelocities(ud updateData) meanLoss {
+func updatePositionsAndVelocities(ud updateData) {
 	p := ud.p
 	bestSwarm := ud.bestSwarm
 	bestGlobal := ud.bestGlobal
@@ -171,7 +169,7 @@ func updatePositionsAndVelocities(ud updateData) meanLoss {
 	for i, l := range p.nn.Layers {
 		lti := p.layersTrainingInfo[i]
 		revisedPosition := must(l.WeightsAndBiases.Add(lti.Velocities))
-		data := revisedPosition.Data().([]float64)
+		data := revisedPosition.Data().([]float32)
 		for i, w := range data {
 			clamped := math.Max(-ud.weightRange, math.Min(ud.weightRange, w)) // restriction
 			data[i] = clamped
@@ -180,9 +178,6 @@ func updatePositionsAndVelocities(ud updateData) meanLoss {
 		// log.Printf("Layer:%d weights were\n%+v\nNow\n%+v", i, l.WeightsAndBiases, revisedPosition)
 		revisedPosition.CopyTo(l.WeightsAndBiases)
 	}
-
-	loss := p.calculateMeanLoss(ud.testBucketIndex, ud.buckets, ud.ridgeRegressionWeight)
-	return loss
 }
 
 func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTrainingInfo, buckets DataBuckets) {
@@ -201,22 +196,20 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		fillTensorWithRandom(p.r, lti.Jitter, 1, pti.WeightRange)
 	}
 
-	kfoldTotalLossAvg, bucketCount := 0.0, 0.0
+	var kfoldTotalLossAvg, bucketCount float32
 	for testIndex := range buckets {
-		loss := updatePositionsAndVelocities(updateData{
-			p:                     p,
-			bestSwarm:             &bestSwarm,
-			bestGlobal:            &bestGlobal,
-			inertialWeight:        pti.InertialWeight,
-			cognitiveWeight:       pti.CognitiveWeight,
-			socialWeight:          pti.SocialWeight,
-			globalWeight:          pti.GlobalWeight,
-			weightRange:           pti.WeightRange,
-			ridgeRegressionWeight: pti.RidgeRegressionWeight,
-			testBucketIndex:       testIndex,
-			buckets:               buckets,
+		updatePositionsAndVelocities(updateData{
+			p:               p,
+			bestSwarm:       &bestSwarm,
+			bestGlobal:      &bestGlobal,
+			inertialWeight:  pti.InertialWeight,
+			cognitiveWeight: pti.CognitiveWeight,
+			socialWeight:    pti.SocialWeight,
+			globalWeight:    pti.GlobalWeight,
+			weightRange:     pti.WeightRange,
 		})
-		kfoldTotalLossAvg += loss.total
+		loss := p.calculateMeanLoss(testIndex, buckets, pti.RidgeRegressionWeight)
+		kfoldTotalLossAvg += loss.train
 		bucketCount++
 	}
 	kfoldTotalLossAvg /= bucketCount
@@ -229,7 +222,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 	wasSwarmBest, wasGlobalBest := p.setBest(iteration, kfoldTotalLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 	if !wasGlobalBest && !wasSwarmBest {
 		//The best don't die
-		deathChance := p.r.Float64()
+		deathChance := p.r.Float32()
 		if deathChance < pti.DeathRate {
 			log.Printf("<%d> <Swarm%d:Particle%d> died!", iteration, p.swarmID, p.id)
 			p.nn.reset(p.r, p.layersTrainingInfo, pti.WeightRange)
@@ -261,15 +254,15 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 	}
 
 	// log.Printf("%+v %+v", dataset.Inputs, dataset.Outputs)
-	inputs := dataset.Inputs.Data().([]float64)
+	inputs := dataset.Inputs.Data().([]float32)
 	iColCount := dataset.Inputs.Shape()[1]
-	outputs := dataset.Outputs.Data().([]float64)
+	outputs := dataset.Outputs.Data().([]float32)
 	oColCount := dataset.Outputs.Shape()[1]
 
-	iTmp := make([]float64, iColCount)
-	oTmp := make([]float64, oColCount)
+	iTmp := make([]float32, iColCount)
+	oTmp := make([]float32, oColCount)
 	rand.Shuffle(rowCount, func(i, j int) {
-		var x, y []float64
+		var x, y []float32
 
 		iStartI := iColCount * i
 		iEndI := iStartI + iColCount
@@ -319,13 +312,13 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 	return buckets
 }
 
-func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight float64, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
+func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight float32, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
 	p.nn.CurrentLoss = loss
 	var wasSwarmBest, wasGlobalBest bool
 	localBestLoss := p.nn.Best.Loss
 	if loss < localBestLoss {
 		blf := "max"
-		if p.nn.Best.Loss != math.MaxFloat64 {
+		if p.nn.Best.Loss != math.MaxFloat32 {
 			blf = fmt.Sprintf("%0.16f", p.nn.Best.Loss)
 		}
 		log.Printf("<%d> Local best <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
@@ -339,7 +332,7 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 
 		if loss < bestSwarm.Loss {
 			blf = "max"
-			if bestSwarm.Loss != math.MaxFloat64 {
+			if bestSwarm.Loss != math.MaxFloat32 {
 				blf = fmt.Sprintf("%0.16f", bestSwarm.Loss)
 			}
 			log.Printf("<%d> Swarm best  <Swarm%d:Particle%d>> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
@@ -351,7 +344,7 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 			bestGlobal := res.(Position)
 			if loss < bestGlobal.Loss {
 				blf := "max"
-				if bestGlobal.Loss != math.MaxFloat64 {
+				if bestGlobal.Loss != math.MaxFloat32 {
 					blf = fmt.Sprintf("%0.16f", bestGlobal.Loss)
 				}
 				log.Printf("<%d> Global best  <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
@@ -368,7 +361,7 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 
 				sb := strings.Builder{}
 				sb.WriteString(strings.Join(nodeCounts, "x"))
-				sb.WriteString(fmt.Sprintf("_KFX_%0.4f_RMSE_%0.4f_TACC%0.2f.nn", loss, rmse, 100*testAcc))
+				sb.WriteString(fmt.Sprintf("_KFX_%0.4f_RMSE_%0.4f_ACC%0.2f.nn", loss, rmse, 100*testAcc))
 
 				filename := sb.String()
 				// log.Printf("Iteration:%d <Swarm%d:Particle%d> New global best found", iteration, p.swarmID, p.id)
@@ -394,15 +387,15 @@ func (p *particle) setBest(iteration int, loss float64, ridgeRegressionWeight fl
 	return wasSwarmBest, wasGlobalBest
 }
 
-func (p *particle) rmse(buckets DataBuckets) float64 {
-	rmse, count := 0.0, 0.0
+func (p *particle) rmse(buckets DataBuckets) float32 {
+	var rmse, count float32
 	for _, bucket := range buckets {
 		expected := bucket.Outputs
 		actual := p.nn.Activate(bucket.Inputs)
 
 		// log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
 		diff := must(actual.Sub(expected))
-		backing := diff.Data().([]float64)
+		backing := diff.Data().([]float32)
 
 		for _, x := range backing {
 			rmse += x * x
@@ -414,11 +407,13 @@ func (p *particle) rmse(buckets DataBuckets) float64 {
 }
 
 type meanLoss struct {
-	test, train, total float64
+	test, train, total float32
 }
 
-func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, ridgeRegressionWeight float64) meanLoss {
-	meanLoss, testCount, trainCout := meanLoss{}, 0.0, 0.0
+func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, ridgeRegressionWeight float32) meanLoss {
+	meanLoss := meanLoss{}
+	var testCount, trainCout float32
+
 	for i, bucket := range buckets {
 		expected := DenseToRows(bucket.Outputs)
 		actual := DenseToRows(p.nn.Activate(bucket.Inputs))
@@ -426,19 +421,18 @@ func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, r
 
 		if testBucketIndex < 0 || i == testBucketIndex {
 			meanLoss.test += loss
-			testCount += float64(len(expected))
+			testCount += float32(len(expected))
 		} else {
 			meanLoss.train += loss
-			trainCout += float64(len(expected))
+			trainCout += float32(len(expected))
 		}
 	}
 	meanLoss.total = (meanLoss.test + meanLoss.train) / (testCount + trainCout)
 	meanLoss.test /= testCount
 	meanLoss.train /= trainCout
-	l2Regularization := 0.0
-	weightCount := 0.0
+	var l2Regularization, weightCount float32
 	for _, layer := range p.nn.Layers {
-		data := layer.WeightsAndBiases.Data().([]float64)
+		data := layer.WeightsAndBiases.Data().([]float32)
 		for _, w := range data {
 			l2Regularization += w * w
 			weightCount++

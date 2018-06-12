@@ -2,36 +2,37 @@ package cogent
 
 import (
 	"fmt"
-	"math"
 	"runtime"
 	"strconv"
 	strings "strings"
+
+	math "github.com/chewxy/math32"
 
 	"github.com/pkg/errors"
 )
 
 type normalizedEncoding struct {
-	values            []float64
-	mean              float64
-	standardDeviation float64
+	values            []float32
+	mean              float32
+	standardDeviation float32
 }
 
 func (n *normalizedEncoding) Learn(valueStrings ...string) error {
+	var x float32
 	for _, v := range valueStrings {
-		var err error
-		x := 0.0
 
 		if trimmed := strings.TrimSpace(v); len(trimmed) > 0 {
-			x, err = strconv.ParseFloat(trimmed, 64)
+			f, err := strconv.ParseFloat(trimmed, 32)
 			if err != nil {
 				return errors.Wrap(err, "can't convert to float")
 			}
+			x = float32(f)
 		}
 
 		n.values = append(n.values, x)
 	}
 
-	floatCount := float64(len(n.values))
+	floatCount := float32(len(n.values))
 	n.mean = 0
 	for _, v := range n.values {
 		n.mean += v
@@ -48,32 +49,32 @@ func (n *normalizedEncoding) Learn(valueStrings ...string) error {
 	return nil
 }
 
-func (n *normalizedEncoding) Encode(valueString string) ([]float64, error) {
-	var value float64
-	var err error
+func (n *normalizedEncoding) Encode(valueString string) ([]float32, error) {
+	var value float32
 
 	if trimmed := strings.TrimSpace(valueString); len(trimmed) > 0 {
-		value, err = strconv.ParseFloat(trimmed, 64)
+		f, err := strconv.ParseFloat(trimmed, 32)
 		if err != nil {
 			return nil, errors.Wrapf(err, "can't convert to float '%s'", valueString)
 		}
+		value = float32(f)
 	}
 	x := (value - n.mean)
 	if n.standardDeviation != 0 {
 		x /= n.standardDeviation
 	}
-	return []float64{x}, nil
+	return []float32{x}, nil
 }
 
 type intRangeEncoding struct {
-	min, max float64
+	min, max float32
 	ohe      *oneHotEncoding
 }
 
 func (ire *intRangeEncoding) Learn(valueStrings ...string) error {
 	if ire.min == 0 && ire.max == 0 {
-		ire.min = math.MaxFloat64
-		ire.max = -math.MaxFloat64
+		ire.min = math.MaxFloat32
+		ire.max = -math.MaxFloat32
 	}
 
 	for _, v := range valueStrings {
@@ -81,17 +82,17 @@ func (ire *intRangeEncoding) Learn(valueStrings ...string) error {
 		if v == "" {
 			v = "0"
 		}
-		vf, err := strconv.ParseFloat(v, 64)
+		vf, err := strconv.ParseFloat(v, 32)
 		if err != nil {
 			return errors.Wrap(err, "can't parse string to float")
 		}
-		ire.min = math.Min(ire.min, vf)
-		ire.max = math.Max(ire.max, vf)
+		ire.min = math.Min(ire.min, float32(vf))
+		ire.max = math.Max(ire.max, float32(vf))
 	}
 	return nil
 }
 
-func (ire *intRangeEncoding) Encode(valueString string) ([]float64, error) {
+func (ire *intRangeEncoding) Encode(valueString string) ([]float32, error) {
 	if ire.ohe == nil {
 		ire.ohe = &oneHotEncoding{}
 		for i := ire.min; i <= ire.max; i++ {

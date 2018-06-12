@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
-	"math"
 	"math/rand"
 	"runtime"
+
+	math "github.com/chewxy/math32"
 
 	t "gorgonia.org/tensor"
 )
@@ -23,11 +24,10 @@ var (
 		WeightRange:           10,
 		ProbablityOfDeath:     0.005,
 		RidgeRegressionWeight: 0.1,
-		KFolds:                10,
 		StoreGlobalBest:       false,
 	}
 	//Float x
-	Float = t.Float64
+	Float = t.Float32
 )
 
 //NeuralNetworkConfiguration x
@@ -41,7 +41,7 @@ type NeuralNetworkConfiguration struct {
 type NeuralNetwork struct {
 	Loss        LossMode
 	Layers      []LayerData
-	CurrentLoss float64
+	CurrentLoss float32
 	Best        Position
 }
 
@@ -58,18 +58,18 @@ type LayerData struct {
 	Activation       ActivationMode
 }
 
-func fillTensorWithRandom(r *rand.Rand, x *t.Dense, scaler, weightRange float64) {
-	data := x.Data().([]float64)
+func fillTensorWithRandom(r *rand.Rand, x *t.Dense, scaler, weightRange float32) {
+	data := x.Data().([]float32)
 
 	for i := range data {
 		lo := -scaler * weightRange
 		hi := scaler * weightRange
-		data[i] = (hi-lo)*rand.Float64() + lo
+		data[i] = (hi-lo)*rand.Float32() + lo
 	}
 	// log.Printf("%+v", x)
 }
 
-func (l *LayerData) reset(r *rand.Rand, lti *layerTrainingInfo, weightRange float64) {
+func (l *LayerData) reset(r *rand.Rand, lti *layerTrainingInfo, weightRange float32) {
 	fillTensorWithRandom(r, l.WeightsAndBiases, 1, weightRange)
 	fillTensorWithRandom(r, lti.Velocities, 0.1, weightRange)
 }
@@ -91,12 +91,12 @@ func (nn *NeuralNetwork) weightsAndBiasesCount() int {
 	return count
 }
 
-func (nn *NeuralNetwork) reset(r *rand.Rand, ltis []*layerTrainingInfo, weightRange float64) {
+func (nn *NeuralNetwork) reset(r *rand.Rand, ltis []*layerTrainingInfo, weightRange float32) {
 	for i, l := range nn.Layers {
 		l.reset(r, ltis[i], weightRange)
 	}
-	nn.CurrentLoss = math.MaxFloat64
-	nn.Best.Loss = math.MaxFloat64
+	nn.CurrentLoss = math.MaxFloat32
+	nn.Best.Loss = math.MaxFloat32
 }
 
 func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
@@ -109,8 +109,8 @@ func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
 		t.WithShape(initialRowCount, expandedColCount),
 	)
 
-	initial := initialT.Data().([]float64)
-	expanded := expandedT.Data().([]float64)
+	initial := initialT.Data().([]float32)
+	expanded := expandedT.Data().([]float32)
 
 	intialIndex := 0
 	for i := range expanded {
@@ -128,7 +128,7 @@ func cloneAndExpandColumn(initialT *t.Dense) *t.Dense {
 
 func resetBiasColumn(tt *t.Dense) {
 	colCount := tt.Shape()[1]
-	data := tt.Data().([]float64)
+	data := tt.Data().([]float32)
 	for i := colCount - 1; i < len(data); i += colCount {
 		data[i] = 1
 	}
@@ -156,9 +156,8 @@ func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
-func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex int) float64 {
-
-	correctCount, totalCount := 0.0, 0.0
+func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex int) float32 {
+	var correctCount, totalCount float32
 	for b := 0; b < len(buckets); b++ {
 		if testIndex >= 0 && b != testIndex {
 			continue
@@ -171,9 +170,9 @@ func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex i
 		shouldSplit := nn.Layers[len(nn.Layers)-1].Activation == SplitSoftmax
 
 		expected := bucket.Outputs
-		expectedBacking := expected.Data().([]float64)
+		expectedBacking := expected.Data().([]float32)
 		actual := nn.Activate(bucket.Inputs)
-		actualBacking := actual.Data().([]float64)
+		actualBacking := actual.Data().([]float32)
 		// log.Printf("Expected\n%+v\nActual\n%+v", expected, actual)
 
 		for i := 0; i < rowCount; i++ {
@@ -183,10 +182,10 @@ func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex i
 			expected := expectedBacking[start:end]
 			actual := actualBacking[start:end]
 			if shouldSplit {
-				correctness := func(e, a []float64) float64 {
+				correctness := func(e, a []float32) float32 {
 					eIndex := argmax(e)
 					aIndex := argmax(a)
-					delta := math.Abs(float64(eIndex - aIndex))
+					delta := math.Abs(float32(eIndex - aIndex))
 					x := 0.5 * math.Pow(0.5, delta)
 					return x
 				}
@@ -239,8 +238,8 @@ func checkErr(err error) {
 	}
 }
 
-func argmax(a []float64) int {
-	maxVal := -math.MaxFloat64
+func argmax(a []float32) int {
+	maxVal := float32(-math.MaxFloat32)
 	maxInt := -1
 
 	for i := range a {

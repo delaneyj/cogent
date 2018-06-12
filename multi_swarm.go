@@ -3,9 +3,10 @@ package cogent
 import (
 	"fmt"
 	"log"
-	"math"
 	"sync"
 	"time"
+
+	math "github.com/chewxy/math32"
 
 	t "gorgonia.org/tensor"
 )
@@ -46,7 +47,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 	tmpParticle := newParticle(-1, -1, bb, trainingConfig.WeightRange, config.NeuralNetworkConfiguration)
 
 	bb.Store(globalKey, Position{
-		Loss:   math.MaxFloat64,
+		Loss:   math.MaxFloat32,
 		Layers: tmpParticle.nn.Layers,
 	})
 
@@ -71,7 +72,7 @@ func NewMultiSwarm(config MultiSwarmConfiguration, trainingConfig TrainingConfig
 		swarmKey := fmt.Sprintf(swarmKeyFormat, s.id)
 
 		bb.Store(swarmKey, Position{
-			Loss:   math.MaxFloat64,
+			Loss:   math.MaxFloat32,
 			Layers: tmpParticle.nn.Layers,
 		})
 	}
@@ -95,7 +96,6 @@ func (ms *MultiSwarm) Train(buckets DataBuckets, shouldMultithread bool) {
 		WeightRange:           ms.trainingConfig.WeightRange,
 		DeathRate:             ms.trainingConfig.ProbablityOfDeath,
 		RidgeRegressionWeight: ms.trainingConfig.RidgeRegressionWeight,
-		KFolds:                ms.trainingConfig.KFolds,
 		StoreGlobalBest:       ms.trainingConfig.StoreGlobalBest,
 	}
 
@@ -116,22 +116,22 @@ func (ms *MultiSwarm) Train(buckets DataBuckets, shouldMultithread bool) {
 		}
 		wg.Wait()
 
-		var nn *NeuralNetwork
-		for _, s := range ms.swarms {
-			for _, p := range s.particles {
-				if nn == nil || nn.Best.Loss < nn.Best.Loss {
-					nn = p.nn
-				}
-			}
-		}
-		bestAcc := nn.ClassificationAccuracy(buckets, -1)
+		// var nn *NeuralNetwork
+		// for _, s := range ms.swarms {
+		// 	for _, p := range s.particles {
+		// 		if nn == nil || nn.Best.Loss < nn.Best.Loss {
+		// 			nn = p.nn
+		// 		}
+		// 	}
+		// }
+		// bestAcc := nn.ClassificationAccuracy(buckets, -1)
 		log.Printf("iteration %d took %s.", iterations, time.Since(start))
-		avgTime += time.Since(start)
+		// avgTime += time.Since(start)
 
-		if bestAcc >= pti.TargetAccuracy {
-			ms.predictor = nn
-			break
-		}
+		// if bestAcc >= pti.TargetAccuracy {
+		// 	ms.predictor = nn
+		// 	break
+		// }
 	}
 
 	log.Printf("Did %d iterations taking on average %s.", iterations, avgTime/time.Duration(iterations+1))
@@ -150,7 +150,7 @@ func (ms *MultiSwarm) predictNN() *NeuralNetwork {
 }
 
 //ClassificationAccuracy x
-func (ms *MultiSwarm) ClassificationAccuracy(buckets DataBuckets) float64 {
+func (ms *MultiSwarm) ClassificationAccuracy(buckets DataBuckets) float32 {
 	ms.predictNN()
 	acc := ms.predictNN().ClassificationAccuracy(buckets, -1)
 	return acc

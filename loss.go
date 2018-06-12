@@ -1,8 +1,9 @@
 package cogent
 
 import (
-	math "math"
 	"runtime"
+
+	math "github.com/chewxy/math32"
 )
 
 //LossFns x
@@ -17,10 +18,10 @@ var LossFns = map[LossMode]lossFn{
 	ItakuraSaitoDistanceLoss:                 itakuraSaitoDistanceLoss,
 }
 
-type lossFn func(expected, actual [][]float64) float64
+type lossFn func(expected, actual [][]float32) float32
 
-func squaredLoss(expected, actual [][]float64) float64 {
-	sum, count := 0.0, float64(len(actual))
+func squaredLoss(expected, actual [][]float32) float32 {
+	sum, count := float32(0), float32(len(actual))
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 
@@ -34,9 +35,9 @@ func squaredLoss(expected, actual [][]float64) float64 {
 	return sum / count
 }
 
-func crossLoss(expected, actual [][]float64) float64 {
-	sum, count := 0.0, float64(len(actual))
-	epsilon := float64(7.)/3 - float64(4.)/3 - float64(1.)
+func crossLoss(expected, actual [][]float32) float32 {
+	sum, count := float32(0), float32(len(actual))
+	epsilon := float32(0.000001)
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 
@@ -44,7 +45,7 @@ func crossLoss(expected, actual [][]float64) float64 {
 			a := actualRow[i]
 
 			p := math.Max(epsilon, math.Min(a, 1-epsilon))
-			var x float64
+			var x float32
 			if e == 1 {
 				x = -math.Log(p)
 			} else {
@@ -61,8 +62,8 @@ func crossLoss(expected, actual [][]float64) float64 {
 	return sum / count
 }
 
-func hinge(expected, actual [][]float64) float64 {
-	sum, count := 0.0, float64(len(actual))
+func hinge(expected, actual [][]float32) float32 {
+	sum, count := float32(0), float32(len(actual))
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 		for i, e := range expectedRow {
@@ -73,12 +74,12 @@ func hinge(expected, actual [][]float64) float64 {
 	return sum / count
 }
 
-func exponentialLoss(expected, actual [][]float64) float64 {
+func exponentialLoss(expected, actual [][]float32) float32 {
 	return math.Exp(squaredLoss(expected, actual))
 }
 
-func hellingerDistanceLoss(expected, actual [][]float64) float64 {
-	sum, count := 0.0, float64(len(actual))
+func hellingerDistanceLoss(expected, actual [][]float32) float32 {
+	sum, count := float32(0), float32(len(actual))
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 		for i, e := range expectedRow {
@@ -90,8 +91,8 @@ func hellingerDistanceLoss(expected, actual [][]float64) float64 {
 	return ((1 / math.Sqrt2) * math.Sqrt(sum)) / count
 }
 
-func kullbackLeiblerDivergenceLoss(expected, actual [][]float64) float64 {
-	sum, count := 0.0, float64(len(actual))
+func kullbackLeiblerDivergenceLoss(expected, actual [][]float32) float32 {
+	sum, count := float32(0), float32(len(actual))
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 		for i, e := range expectedRow {
@@ -105,8 +106,9 @@ func kullbackLeiblerDivergenceLoss(expected, actual [][]float64) float64 {
 	return sum / count
 }
 
-func generalizedKullbackLeiblerDivergenceLoss(expected, actual [][]float64) float64 {
-	xSum, ySum, zSum, count := 0.0, 0.0, 0.0, float64(len(actual))
+func generalizedKullbackLeiblerDivergenceLoss(expected, actual [][]float32) float32 {
+	var xSum, ySum, zSum float32
+	count := float32(len(actual))
 	for i, actualRow := range actual {
 		expectedRow := expected[i]
 		for i, e := range expectedRow {
@@ -122,10 +124,10 @@ func generalizedKullbackLeiblerDivergenceLoss(expected, actual [][]float64) floa
 	return (xSum - ySum + zSum) / count
 }
 
-func itakuraSaitoDistanceLoss(expected, actual [][]float64) float64 {
-	count := float64(len(actual))
-	nonSymmetric := func(eX, aY [][]float64) float64 {
-		sum := 0.0
+func itakuraSaitoDistanceLoss(expected, actual [][]float32) float32 {
+	count := float32(len(actual))
+	nonSymmetric := func(eX, aY [][]float32) float32 {
+		sum := float32(0)
 		for i, actualRow := range actual {
 			expectedRow := expected[i]
 			for i, e := range expectedRow {

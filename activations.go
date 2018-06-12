@@ -1,7 +1,7 @@
 package cogent
 
 import (
-	math "math"
+	math "github.com/chewxy/math32"
 
 	t "gorgonia.org/tensor"
 )
@@ -14,7 +14,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	BinaryStep: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			if x > 0 {
 				data[i] = 1
@@ -24,7 +24,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	Sigmoid: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			data[i] = 1 / (1 + math.Exp(-x))
 		}
@@ -32,7 +32,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	HyperbolicTangent: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			switch {
 			case x < -20:
@@ -47,7 +47,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	ArcTan: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			data[i] = math.Atan(x)
 		}
@@ -55,7 +55,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	Softsign: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			data[i] = x / (1 + math.Abs(x))
 		}
@@ -63,7 +63,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	ISRU: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			data[i] = x / math.Sqrt(1+x*x)
 		}
@@ -71,7 +71,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	ReLU: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			if x < 0 {
 				data[i] = 0
@@ -81,7 +81,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	LeakyReLU: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			if x < 0 {
 				data[i] = x * 0.01
@@ -93,7 +93,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	ELU: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			if x < 0 {
 				data[i] = math.Exp(x) - 1
@@ -106,7 +106,7 @@ var activations = map[ActivationMode]activationFunction{
 	SELU: func(tt *t.Dense) *t.Dense {
 		const lambda, alpha = 1.0507, 1.67326
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			y := lambda * x
 			if x < 0 {
@@ -114,7 +114,7 @@ var activations = map[ActivationMode]activationFunction{
 			}
 
 			if math.IsInf(y, 1) {
-				y = math.MaxFloat64
+				y = math.MaxFloat32
 			}
 			data[i] = y
 		}
@@ -122,11 +122,11 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	SoftPlus: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			y := math.Log(1 + math.Exp(x))
 			if math.IsInf(y, 1) {
-				y = math.MaxFloat64
+				y = math.MaxFloat32
 			}
 			data[i] = y
 		}
@@ -134,11 +134,11 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	BentIdentity: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			y := (math.Sqrt(x*x+1)-1)/2 + x
 			if math.IsInf(y, 1) {
-				y = math.MaxFloat64
+				y = math.MaxFloat32
 			}
 			data[i] = y
 		}
@@ -146,13 +146,13 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	Sinusoid: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			y := math.Sin(x)
 			if math.IsInf(y, 1) {
-				y = math.MaxFloat64
+				y = math.MaxFloat32
 			} else if math.IsInf(y, -1) {
-				y = -math.MaxFloat64
+				y = -math.MaxFloat32
 			}
 			data[i] = y
 		}
@@ -160,15 +160,15 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	Sinc: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
-			y := 1.0
+			y := float32(1)
 			if x != 0 {
 				y = math.Sin(x) / x
 			}
 
 			if math.IsInf(y, 1) {
-				y = math.MaxFloat64
+				y = math.MaxFloat32
 			}
 			data[i] = y
 		}
@@ -176,7 +176,7 @@ var activations = map[ActivationMode]activationFunction{
 	},
 	Gaussian: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 		for i, x := range data {
 			data[i] = math.Exp(-(x * x))
 		}
@@ -193,9 +193,9 @@ var activations = map[ActivationMode]activationFunction{
 
 	Maxout: func(tt *t.Dense) *t.Dense {
 		activated := tt.Clone().(*t.Dense)
-		data := activated.Data().([]float64)
+		data := activated.Data().([]float32)
 
-		max := -math.MaxFloat64
+		max := float32(-math.MaxFloat32)
 		for _, x := range data {
 			max = math.Max(x, max)
 		}
@@ -221,9 +221,10 @@ var activations = map[ActivationMode]activationFunction{
 	},
 }
 
-func softmaxModifyRow(row []float64) {
-	exps := make([]float64, len(row))
-	sum, max := 0.0, -math.MaxFloat64
+func softmaxModifyRow(row []float32) {
+	exps := make([]float32, len(row))
+	var sum, max float32
+	max = -math.MaxFloat32
 
 	for _, x := range row {
 		if x > max {
@@ -243,13 +244,13 @@ func softmaxModifyRow(row []float64) {
 }
 
 //DenseToRows x
-func DenseToRows(tt *t.Dense) [][]float64 {
+func DenseToRows(tt *t.Dense) [][]float32 {
 	s := tt.Shape()
 	rowCount := s[0]
 	colCount := s[1]
-	data := tt.Data().([]float64)
+	data := tt.Data().([]float32)
 
-	results := make([][]float64, rowCount)
+	results := make([][]float32, rowCount)
 	for i := 0; i < rowCount; i++ {
 		offset := i * colCount
 		results[i] = data[offset : offset+colCount]

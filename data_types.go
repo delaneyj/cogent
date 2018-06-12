@@ -71,10 +71,10 @@ const (
 //Position x
 type Position struct {
 	Layers []LayerData
-	Loss   float64
+	Loss   float32
 }
 
-func nnToPosition(loss float64, nn *NeuralNetwork) Position {
+func nnToPosition(loss float32, nn *NeuralNetwork) Position {
 	layers := make([]LayerData, len(nn.Layers))
 	for i := range nn.Layers {
 		layers[i] = nn.Layers[i].Clone()
@@ -88,16 +88,15 @@ func nnToPosition(loss float64, nn *NeuralNetwork) Position {
 
 //TrainingConfiguration x
 type TrainingConfiguration struct {
-	InertialWeight        float64
-	CognitiveWeight       float64
-	SocialWeight          float64
-	GlobalWeight          float64
+	InertialWeight        float32
+	CognitiveWeight       float32
+	SocialWeight          float32
+	GlobalWeight          float32
 	MaxIterations         int
-	TargetAccuracy        float64
-	WeightRange           float64
-	ProbablityOfDeath     float64
-	RidgeRegressionWeight float64
-	KFolds                int
+	TargetAccuracy        float32
+	WeightRange           float32
+	ProbablityOfDeath     float32
+	RidgeRegressionWeight float32
 	StoreGlobalBest       bool
 }
 
@@ -110,8 +109,8 @@ type MultiSwarmConfiguration struct {
 
 //Data x
 type Data []struct {
-	Inputs  []float64
-	Outputs []float64
+	Inputs  []float32
+	Outputs []float32
 }
 
 //DataToTensorDataBucket x
@@ -129,8 +128,8 @@ func DataToTensorDataBucket(data Data) *DataBucket {
 			t.WithShape(rows, oColCount),
 		),
 	}
-	inputsBacking := bucket.Inputs.Data().([]float64)
-	outputsBacking := bucket.Outputs.Data().([]float64)
+	inputsBacking := bucket.Inputs.Data().([]float32)
+	outputsBacking := bucket.Outputs.Data().([]float32)
 
 	i, o := 0, 0
 	for _, x := range data {

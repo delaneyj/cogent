@@ -5,9 +5,10 @@ package cogent
 //Heatmap is from my own research on using time based categories in non-recurrent neural networks.
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
+
+	math "github.com/chewxy/math32"
 
 	"github.com/pkg/errors"
 )
@@ -19,8 +20,8 @@ func (b *booleanEncoding) Learn(categories ...string) error {
 	return nil
 }
 
-func (b *booleanEncoding) Encode(category string) ([]float64, error) {
-	falseArray := []float64{0}
+func (b *booleanEncoding) Encode(category string) ([]float32, error) {
+	falseArray := []float32{0}
 	lower := strings.ToLower(category)
 	if lower == "false" || lower == "f" {
 		return falseArray, nil
@@ -35,17 +36,17 @@ func (b *booleanEncoding) Encode(category string) ([]float64, error) {
 		return falseArray, nil
 	}
 
-	return []float64{1}, nil
+	return []float32{1}, nil
 }
 
 type ordinalEncoding struct {
-	mapping map[string]float64
-	nextID  float64
+	mapping map[string]float32
+	nextID  float32
 }
 
 func (o *ordinalEncoding) Learn(categories ...string) error {
 	if o.mapping == nil {
-		o.mapping = map[string]float64{}
+		o.mapping = map[string]float32{}
 	}
 	for _, c := range categories {
 		if _, ok := o.mapping[c]; !ok {
@@ -56,14 +57,14 @@ func (o *ordinalEncoding) Learn(categories ...string) error {
 	return nil
 }
 
-func (o *ordinalEncoding) Encode(category string) ([]float64, error) {
+func (o *ordinalEncoding) Encode(category string) ([]float32, error) {
 	value, ok := o.mapping[category]
 	if !ok {
 		value = -1
 	} else {
 		value /= o.nextID - 1
 	}
-	return []float64{value}, nil
+	return []float32{value}, nil
 }
 
 type oneHotEncoding struct {
@@ -85,8 +86,8 @@ func (o *oneHotEncoding) Learn(categories ...string) error {
 	return nil
 }
 
-func (o *oneHotEncoding) Encode(category string) ([]float64, error) {
-	oneHot := make([]float64, len(o.mapping))
+func (o *oneHotEncoding) Encode(category string) ([]float32, error) {
+	oneHot := make([]float32, len(o.mapping))
 
 	index, ok := o.mapping[category]
 	if !ok {
@@ -117,18 +118,18 @@ func (b *binaryEncoding) Learn(categories ...string) error {
 	return nil
 }
 
-func (b *binaryEncoding) Encode(category string) ([]float64, error) {
-	lf := float64(len(b.mapping))
+func (b *binaryEncoding) Encode(category string) ([]float32, error) {
+	lf := float32(len(b.mapping))
 
 	if lf == 0 {
 		return nil, errors.New("no mappings, did you Learn examples first?")
 	}
 	if lf == 1 {
-		return []float64{0}, nil
+		return []float32{0}, nil
 	}
 
 	li := int(math.Ceil(math.Log2(lf)))
-	binary := make([]float64, li)
+	binary := make([]float32, li)
 
 	categoryValue, ok := b.mapping[category]
 	if !ok {
@@ -163,8 +164,8 @@ func (bsa *stringArrayEncoding) Learn(arr ...string) error {
 	return nil
 }
 
-func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
-	var response []float64
+func (bsa *stringArrayEncoding) Encode(arr string) ([]float32, error) {
+	var response []float32
 	for _, s := range strings.Split(arr, ",") {
 		e, err := bsa.ohe.Encode(s)
 		if err != nil {
@@ -172,7 +173,7 @@ func (bsa *stringArrayEncoding) Encode(arr string) ([]float64, error) {
 		}
 
 		if response == nil {
-			response = make([]float64, len(e))
+			response = make([]float32, len(e))
 		}
 
 		for i, x := range e {
@@ -197,9 +198,9 @@ func (hm *heatMapEncoding) Learn(csvArrs ...string) error {
 	return nil
 }
 
-func (hm *heatMapEncoding) Encode(csvArr string) ([]float64, error) {
-	nextValue := 0.5
-	var combined []float64
+func (hm *heatMapEncoding) Encode(csvArr string) ([]float32, error) {
+	nextValue := float32(0.5)
+	var combined []float32
 
 	for _, s := range strings.Split(csvArr, ",") {
 		arr, err := hm.oneHot.Encode(s)
@@ -208,7 +209,7 @@ func (hm *heatMapEncoding) Encode(csvArr string) ([]float64, error) {
 		}
 
 		if combined == nil {
-			combined = make([]float64, len(arr))
+			combined = make([]float32, len(arr))
 		}
 
 		for i, x := range arr {
@@ -224,13 +225,13 @@ func (hm *heatMapEncoding) Encode(csvArr string) ([]float64, error) {
 	return combined, nil
 }
 
-func (hm *heatMapEncoding) EncodeAll(categories []string, ascendingPriority bool) ([]float64, error) {
+func (hm *heatMapEncoding) EncodeAll(categories []string, ascendingPriority bool) ([]float32, error) {
 	ordered := categories
 	if ascendingPriority {
 		ordered = reverseStrings(ordered)
 	}
 
-	heatmap := make([]float64, len(hm.oneHot.mapping))
+	heatmap := make([]float32, len(hm.oneHot.mapping))
 	for _, c := range ordered {
 		encoded, err := hm.Encode(c)
 		if err != nil {
