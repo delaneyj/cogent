@@ -168,6 +168,7 @@ func Test_Flowers(tt *testing.T) {
 		SwarmCount:    8,
 	}
 	tc := DefaultTrainingConfig
+	tc.RidgeRegressionWeight = 0.05
 	tc.MaxIterations = 5000
 	tc.WeightRange = 10
 	tc.ProbablityOfDeath = 0.0001

@@ -132,7 +132,6 @@ func (ms *MultiSwarm) Train(buckets DataBuckets, shouldMultithread bool) {
 			ms.predictor = nn
 			break
 		}
-		break
 	}
 
 	log.Printf("Did %d iterations taking on average %s.", iterations, avgTime/time.Duration(iterations+1))

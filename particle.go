@@ -134,7 +134,7 @@ type updateData struct {
 	lossCh                             chan float64
 }
 
-func updatePositionsAndVelocities(ud updateData) float64 {
+func updatePositionsAndVelocities(ud updateData) meanLoss {
 	p := ud.p
 	bestSwarm := ud.bestSwarm
 	bestGlobal := ud.bestGlobal
@@ -201,7 +201,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 		fillTensorWithRandom(p.r, lti.Jitter, 1, pti.WeightRange)
 	}
 
-	kfoldLossAvg, bucketCount := 0.0, 0.0
+	kfoldTotalLossAvg, bucketCount := 0.0, 0.0
 	for testIndex := range buckets {
 		loss := updatePositionsAndVelocities(updateData{
 			p:                     p,
@@ -216,17 +216,17 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 			testBucketIndex:       testIndex,
 			buckets:               buckets,
 		})
-		kfoldLossAvg += loss
+		kfoldTotalLossAvg += loss.total
 		bucketCount++
 	}
-	kfoldLossAvg /= bucketCount
+	kfoldTotalLossAvg /= bucketCount
 
 	// for _, l := range p.nn.Layers {
 	// 	log.Printf("%+v", l.WeightsAndBiases)
 	// }
 	// log.Printf("Iteration:%d <%d:%d> took %s. %f", iteration, p.swarmID, p.id, time.Since(start), kfoldLossAvg)
 
-	wasSwarmBest, wasGlobalBest := p.setBest(iteration, kfoldLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
+	wasSwarmBest, wasGlobalBest := p.setBest(iteration, kfoldTotalLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 	if !wasGlobalBest && !wasSwarmBest {
 		//The best don't die
 		deathChance := p.r.Float64()
@@ -235,7 +235,7 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 			p.nn.reset(p.r, p.layersTrainingInfo, pti.WeightRange)
 			randomIndex := p.r.Intn(len(buckets))
 			loss := p.calculateMeanLoss(randomIndex, buckets, pti.RidgeRegressionWeight)
-			p.setBest(iteration, loss, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
+			p.setBest(iteration, loss.test, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 		}
 
 	}
@@ -261,15 +261,10 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 	}
 
 	// log.Printf("%+v %+v", dataset.Inputs, dataset.Outputs)
-
 	inputs := dataset.Inputs.Data().([]float64)
-	is := dataset.Inputs.Shape()
-	iRowCount := is[0]
-	iColCount := is[1]
+	iColCount := dataset.Inputs.Shape()[1]
 	outputs := dataset.Outputs.Data().([]float64)
-	rs := dataset.Outputs.Shape()
-	oRowCount := rs[0]
-	oColCount := rs[1]
+	oColCount := dataset.Outputs.Shape()[1]
 
 	iTmp := make([]float64, iColCount)
 	oTmp := make([]float64, oColCount)
@@ -299,13 +294,13 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 
 	bucketRowCount := rowCount / k
 	buckets := make(DataBuckets, k)
-	iDelta := iColCount * iRowCount
-	oDelta := oColCount * oRowCount
+	iDelta := iColCount * bucketRowCount
+	oDelta := oColCount * bucketRowCount
 	for i := 0; i < k; i++ {
 		iOffset := i * iDelta
 		bucketInputs := inputs[iOffset : iOffset+iDelta]
 		oOffset := i * oDelta
-		bucketOutputs := outputs[oOffset : oOffset+iDelta]
+		bucketOutputs := outputs[oOffset : oOffset+oDelta]
 		bucket := &DataBucket{
 			Inputs: t.New(
 				t.Of(Float),
@@ -418,17 +413,28 @@ func (p *particle) rmse(buckets DataBuckets) float64 {
 	return rmse
 }
 
-func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, ridgeRegressionWeight float64) float64 {
-	avgLoss, bucketCount := 0.0, 0.0
-	for _, bucket := range buckets {
+type meanLoss struct {
+	test, train, total float64
+}
+
+func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, ridgeRegressionWeight float64) meanLoss {
+	meanLoss, testCount, trainCout := meanLoss{}, 0.0, 0.0
+	for i, bucket := range buckets {
 		expected := DenseToRows(bucket.Outputs)
 		actual := DenseToRows(p.nn.Activate(bucket.Inputs))
-		// log.Printf("calculateMeanLoss \nExpected:%+v\nActual:%+v", expected, actual)
 		loss := p.fn(expected, actual)
-		avgLoss += loss
-		bucketCount++
+
+		if testBucketIndex < 0 || i == testBucketIndex {
+			meanLoss.test += loss
+			testCount += float64(len(expected))
+		} else {
+			meanLoss.train += loss
+			trainCout += float64(len(expected))
+		}
 	}
-	avgLoss /= bucketCount
+	meanLoss.total = (meanLoss.test + meanLoss.train) / (testCount + trainCout)
+	meanLoss.test /= testCount
+	meanLoss.train /= trainCout
 	l2Regularization := 0.0
 	weightCount := 0.0
 	for _, layer := range p.nn.Layers {
@@ -442,7 +448,10 @@ func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, r
 	l2Regularization *= ridgeRegressionWeight
 
 	// log.Printf("<%02d:%02d>  LF:%f L2:%f", p.swarmID, p.id, loss, l2Regularization)
-	return avgLoss + l2Regularization
+	meanLoss.test += l2Regularization
+	meanLoss.train += l2Regularization
+	meanLoss.total += l2Regularization
+	return meanLoss
 }
 
 func checkOk(ok bool) {
