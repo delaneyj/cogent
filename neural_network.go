@@ -6,8 +6,10 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
+	"time"
 
 	math "github.com/chewxy/math32"
+	"github.com/davecgh/go-spew/spew"
 
 	t "gorgonia.org/tensor"
 )
@@ -134,30 +136,38 @@ func resetBiasColumn(tt *t.Dense) {
 	}
 }
 
-//Activate feeds forward through the network
-func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) *t.Dense {
-	inputs := initialInputs
+//Durations x
+type Durations []time.Duration
 
+//Activate feeds forward through the network
+func (nn *NeuralNetwork) Activate(initialInputs *t.Dense) (*t.Dense, Durations) {
+	inputs := initialInputs
+	layerDurations := make(Durations, len(nn.Layers))
 	lastLayerIndex := len(nn.Layers) - 1
 	var activated *t.Dense
 	for i, l := range nn.Layers {
+		start := time.Now()
 		// log.Printf("<Activate Layer %d>\nInput\n%+v\nLayer\n%+v", i, inputs, l.WeightsAndBiases)
 		outputs := must(inputs.MatMul(l.WeightsAndBiases))
 		activationFunc := activations[l.Activation]
 		activated = activationFunc(outputs)
 		// log.Printf("Outputs\n%+v\nActivated\n%+v", outputs, activated)
 
+		layerDurations[i] = time.Since(start)
 		if i != lastLayerIndex {
 			resetBiasColumn(activated)
 			inputs = activated
 		}
 	}
-	return activated
+	return activated, layerDurations
 }
 
 //ClassificationAccuracy percentage correct using winner-takes all
 func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex int) float32 {
 	var correctCount, totalCount float32
+
+	layerCount := len(nn.Layers)
+	layerActivateAvg := make(Durations, layerCount)
 	for b := 0; b < len(buckets); b++ {
 		if testIndex >= 0 && b != testIndex {
 			continue
@@ -171,9 +181,12 @@ func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex i
 
 		expected := bucket.Outputs
 		expectedBacking := expected.Data().([]float32)
-		actual := nn.Activate(bucket.Inputs)
+		actual, durations := nn.Activate(bucket.Inputs)
 		actualBacking := actual.Data().([]float32)
 		// log.Printf("Expected\n%+v\nActual\n%+v", expected, actual)
+		for i, d := range durations {
+			layerActivateAvg[i] += d
+		}
 
 		for i := 0; i < rowCount; i++ {
 			start := i * colCount
@@ -205,6 +218,10 @@ func (nn *NeuralNetwork) ClassificationAccuracy(buckets DataBuckets, testIndex i
 			totalCount++
 		}
 	}
+	for i := range layerActivateAvg {
+		layerActivateAvg[i] /= time.Duration(layerCount)
+	}
+	spew.Dump(layerActivateAvg)
 
 	ratio := correctCount / totalCount
 	return ratio

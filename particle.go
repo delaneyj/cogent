@@ -391,7 +391,7 @@ func (p *particle) rmse(buckets DataBuckets) float32 {
 	var rmse, count float32
 	for _, bucket := range buckets {
 		expected := bucket.Outputs
-		actual := p.nn.Activate(bucket.Inputs)
+		actual, _ := p.nn.Activate(bucket.Inputs)
 
 		// log.Printf("In rmse \nExpected:%+v\nActual:%+v", expected, actual)
 		diff := must(actual.Sub(expected))
@@ -416,7 +416,8 @@ func (p *particle) calculateMeanLoss(testBucketIndex int, buckets DataBuckets, r
 
 	for i, bucket := range buckets {
 		expected := DenseToRows(bucket.Outputs)
-		actual := DenseToRows(p.nn.Activate(bucket.Inputs))
+		outputs, _ := p.nn.Activate(bucket.Inputs)
+		actual := DenseToRows(outputs)
 		loss := p.fn(expected, actual)
 
 		if testBucketIndex < 0 || i == testBucketIndex {

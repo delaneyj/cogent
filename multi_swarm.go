@@ -158,5 +158,6 @@ func (ms *MultiSwarm) ClassificationAccuracy(buckets DataBuckets) float32 {
 
 //Predict x
 func (ms *MultiSwarm) Predict(inputs *t.Dense) *t.Dense {
-	return ms.predictNN().Activate(inputs)
+	output, _ := ms.predictNN().Activate(inputs)
+	return output
 }
