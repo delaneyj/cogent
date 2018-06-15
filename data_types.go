@@ -114,7 +114,7 @@ type Data []struct {
 }
 
 //DataToTensorDataBucket x
-func DataToTensorDataBucket(data Data) *DataBucket {
+func DataToTensorDataBucket(data Data, shouldAddBiasColum bool) *DataBucket {
 	rows := len(data)
 	iColCount := len(data[0].Inputs)
 	oColCount := len(data[0].Outputs)
@@ -140,5 +140,8 @@ func DataToTensorDataBucket(data Data) *DataBucket {
 		o += len(x.Outputs)
 	}
 
-	return bucket.CloneAndAddBiasColumn()
+	if shouldAddBiasColum {
+		return bucket.CloneAndAddBiasColumn()
+	}
+	return &bucket
 }

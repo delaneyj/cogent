@@ -34,7 +34,7 @@ func basicMathConfig(data Data) MultiSwarmConfiguration {
 
 func basicMathTest(tt *testing.T, data Data) {
 	// tt.Parallel()
-	bucket := DataToTensorDataBucket(data)
+	bucket := DataToTensorDataBucket(data, true)
 	buckets := DataBucketToBuckets(4, bucket)
 	s := NewMultiSwarm(basicMathConfig(data), DefaultTrainingConfig)
 	s.Train(buckets, false)
@@ -145,7 +145,7 @@ func Test_Flowers(tt *testing.T) {
 		}
 		inputCount = len(data[0].Inputs)
 		outputCount = len(data[0].Outputs)
-		bucket := DataToTensorDataBucket(data)
+		bucket := DataToTensorDataBucket(data, true)
 		buckets = DataBucketToBuckets(10, bucket)
 	}
 
