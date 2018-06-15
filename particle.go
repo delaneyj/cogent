@@ -253,37 +253,13 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 		k = rowCount
 	}
 
-	// log.Printf("%+v %+v", dataset.Inputs, dataset.Outputs)
+	ShuffleDatabucket(dataset)
+
 	inputs := dataset.Inputs.Data().([]float32)
 	iColCount := dataset.Inputs.Shape()[1]
 	outputs := dataset.Outputs.Data().([]float32)
 	oColCount := dataset.Outputs.Shape()[1]
-
-	iTmp := make([]float32, iColCount)
-	oTmp := make([]float32, oColCount)
-	rand.Shuffle(rowCount, func(i, j int) {
-		var x, y []float32
-
-		iStartI := iColCount * i
-		iEndI := iStartI + iColCount
-		iStartJ := iColCount * j
-		iEndJ := iStartJ + iColCount
-		x = inputs[iStartI:iEndI]
-		y = inputs[iStartJ:iEndJ]
-		copy(iTmp, x)
-		copy(x, y)
-		copy(y, iTmp)
-
-		oStartI := oColCount * i
-		oEndI := oStartI + oColCount
-		oStartJ := oColCount * j
-		oEndJ := oStartJ + oColCount
-		x = outputs[oStartI:oEndI]
-		y = outputs[oStartJ:oEndJ]
-		copy(oTmp, x)
-		copy(x, y)
-		copy(y, oTmp)
-	})
+	// log.Printf("%+v %+v", dataset.Inputs, dataset.Outputs)
 
 	bucketRowCount := rowCount / k
 	buckets := make(DataBuckets, k)
@@ -310,6 +286,40 @@ func DataBucketToBuckets(k int, dataset *DataBucket) DataBuckets {
 	}
 
 	return buckets
+}
+
+//ShuffleDatabucket x
+func ShuffleDatabucket(dataset *DataBucket) {
+	inputs := dataset.Inputs.Data().([]float32)
+	iColCount := dataset.Inputs.Shape()[1]
+	outputs := dataset.Outputs.Data().([]float32)
+	oColCount := dataset.Outputs.Shape()[1]
+
+	iTmp := make([]float32, iColCount)
+	oTmp := make([]float32, oColCount)
+	rand.Shuffle(dataset.RowCount(), func(i, j int) {
+		var x, y []float32
+
+		iStartI := iColCount * i
+		iEndI := iStartI + iColCount
+		iStartJ := iColCount * j
+		iEndJ := iStartJ + iColCount
+		x = inputs[iStartI:iEndI]
+		y = inputs[iStartJ:iEndJ]
+		copy(iTmp, x)
+		copy(x, y)
+		copy(y, iTmp)
+
+		oStartI := oColCount * i
+		oEndI := oStartI + oColCount
+		oStartJ := oColCount * j
+		oEndJ := oStartJ + oColCount
+		x = outputs[oStartI:oEndI]
+		y = outputs[oStartJ:oEndJ]
+		copy(oTmp, x)
+		copy(x, y)
+		copy(y, oTmp)
+	})
 }
 
 func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight float32, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
