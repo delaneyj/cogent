@@ -107,11 +107,14 @@ type MultiSwarmConfiguration struct {
 	ParticleCount              int
 }
 
-//Data x
-type Data []struct {
+//DataRow x
+type DataRow struct {
 	Inputs  []float32
 	Outputs []float32
 }
+
+//Data x
+type Data []DataRow
 
 //DataToTensorDataBucket x
 func DataToTensorDataBucket(data Data, shouldAddBiasColum bool) *DataBucket {

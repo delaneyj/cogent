@@ -180,7 +180,7 @@ func updatePositionsAndVelocities(ud updateData) {
 	}
 }
 
-func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTrainingInfo, buckets DataBuckets) {
+func (p *particle) train(wg *sync.WaitGroup, maxIterations int, pti particleTrainingInfo, buckets DataBuckets) {
 	// start := time.Now()
 	res, ok := p.blackboard.Load(globalKey)
 	checkOk(ok)
@@ -198,19 +198,21 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 
 	var kfoldTotalLossAvg, bucketCount float32
 	for testIndex := range buckets {
-		updatePositionsAndVelocities(updateData{
-			p:               p,
-			bestSwarm:       &bestSwarm,
-			bestGlobal:      &bestGlobal,
-			inertialWeight:  pti.InertialWeight,
-			cognitiveWeight: pti.CognitiveWeight,
-			socialWeight:    pti.SocialWeight,
-			globalWeight:    pti.GlobalWeight,
-			weightRange:     pti.WeightRange,
-		})
-		loss := p.calculateMeanLoss(testIndex, buckets, pti.RidgeRegressionWeight)
-		kfoldTotalLossAvg += loss.train
-		bucketCount++
+		for i := 0; i < maxIterations; i++ {
+			updatePositionsAndVelocities(updateData{
+				p:               p,
+				bestSwarm:       &bestSwarm,
+				bestGlobal:      &bestGlobal,
+				inertialWeight:  pti.InertialWeight,
+				cognitiveWeight: pti.CognitiveWeight,
+				socialWeight:    pti.SocialWeight,
+				globalWeight:    pti.GlobalWeight,
+				weightRange:     pti.WeightRange,
+			})
+			loss := p.calculateMeanLoss(testIndex, buckets, pti.RidgeRegressionWeight)
+			kfoldTotalLossAvg += loss.train
+			bucketCount++
+		}
 	}
 	kfoldTotalLossAvg /= bucketCount
 
@@ -219,16 +221,16 @@ func (p *particle) train(wg *sync.WaitGroup, iteration int, pti particleTraining
 	// }
 	// log.Printf("Iteration:%d <%d:%d> took %s. %f", iteration, p.swarmID, p.id, time.Since(start), kfoldLossAvg)
 
-	wasSwarmBest, wasGlobalBest := p.setBest(iteration, kfoldTotalLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
+	wasSwarmBest, wasGlobalBest := p.setBest(kfoldTotalLossAvg, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 	if !wasGlobalBest && !wasSwarmBest {
 		//The best don't die
 		deathChance := p.r.Float32()
 		if deathChance < pti.DeathRate {
-			log.Printf("<%d> <Swarm%d:Particle%d> died!", iteration, p.swarmID, p.id)
+			log.Printf("<Swarm%d:Particle%d> died!", p.swarmID, p.id)
 			p.nn.reset(p.r, p.layersTrainingInfo, pti.WeightRange)
 			randomIndex := p.r.Intn(len(buckets))
 			loss := p.calculateMeanLoss(randomIndex, buckets, pti.RidgeRegressionWeight)
-			p.setBest(iteration, loss.test, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
+			p.setBest(loss.test, pti.RidgeRegressionWeight, buckets, pti.StoreGlobalBest)
 		}
 
 	}
@@ -322,7 +324,7 @@ func ShuffleDatabucket(dataset *DataBucket) {
 	})
 }
 
-func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight float32, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
+func (p *particle) setBest(loss float32, ridgeRegressionWeight float32, buckets DataBuckets, storeGlobalBest bool) (bool, bool) {
 	p.nn.CurrentLoss = loss
 	var wasSwarmBest, wasGlobalBest bool
 	localBestLoss := p.nn.Best.Loss
@@ -331,7 +333,7 @@ func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight fl
 		if p.nn.Best.Loss != math.MaxFloat32 {
 			blf = fmt.Sprintf("%0.16f", p.nn.Best.Loss)
 		}
-		log.Printf("<%d> Local best <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+		log.Printf("Local best <Swarm%d:Particle%d> from %s->%f", p.swarmID, p.id, blf, loss)
 		updatedBest := nnToPosition(loss, p.nn)
 		p.nn.Best = updatedBest
 
@@ -345,7 +347,7 @@ func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight fl
 			if bestSwarm.Loss != math.MaxFloat32 {
 				blf = fmt.Sprintf("%0.16f", bestSwarm.Loss)
 			}
-			log.Printf("<%d> Swarm best  <Swarm%d:Particle%d>> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+			log.Printf("Swarm best  <Swarm%d:Particle%d>> from %s->%f", p.swarmID, p.id, blf, loss)
 			p.blackboard.Store(bestSwarmKey, updatedBest)
 			wasSwarmBest = true
 
@@ -357,7 +359,7 @@ func (p *particle) setBest(iteration int, loss float32, ridgeRegressionWeight fl
 				if bestGlobal.Loss != math.MaxFloat32 {
 					blf = fmt.Sprintf("%0.16f", bestGlobal.Loss)
 				}
-				log.Printf("<%d> Global best  <Swarm%d:Particle%d> from %s->%f", iteration, p.swarmID, p.id, blf, loss)
+				log.Printf("Global best  <Swarm%d:Particle%d> from %s->%f", p.swarmID, p.id, blf, loss)
 				p.blackboard.Store(globalKey, updatedBest)
 				wasGlobalBest = true
 
